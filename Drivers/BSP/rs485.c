@@ -35,14 +35,14 @@
 
 uint8_t  Break_num[8] =
 {
-    1,
     2,
     3,
+    4,
     5,
-    7,
-    9,
-    12,
-    15
+    6,
+    8,
+    10,
+    12
 };
 volatile rs485_typedef rs485_struct;
 /******************************************************************************************/
@@ -101,6 +101,7 @@ uint8_t rs485_receive_data(uint8_t *buf, uint16_t buf_size)
  * @param       0=转速控制  1=电流控制  2=占空比控制
  * @retval      
  */
+#define  control_diff   25
 void ESP32_fetinst(uint8_t mode)
 {
     struct_send esp_control = {0};
@@ -114,97 +115,89 @@ void ESP32_fetinst(uint8_t mode)
         motor_control = int_limit(motor_control,-500,500);
         if(mode == 0)      //转速控制
         {
-            pid_sta = 1;
-            g_MA_current_pid.SetPoint  = MAX_CURRENT / 3;
-            g_MB_current_pid.SetPoint  = MAX_CURRENT / 3;
-            
-            //正转，反转，停止
-            if(esp_control.dir)
-            {
-                g_bldc_motorA.dir = CCW;
-                g_bldc_motorB.dir = CW;
-                
-            }else
-            {
-                g_bldc_motorA.dir = CW;
-                g_bldc_motorB.dir = CCW;
-                
-            }
-            //设置参数
-            if(motor_control > 50)  // 加速
-            {
-                g_bldc_motorA.run_flag = RUN;
-                g_bldc_motorB.run_flag = RUN;
-                g_MA_speed_pid.SetPoint  = (abs(motor_control) * MAX_RPM) / 500;
-                g_MB_speed_pid.SetPoint  = (abs(motor_control) * MAX_RPM) / 500;
-            }else if(motor_control < -50)
-            {
-                g_bldc_motorA.run_flag = STOP;
-                g_MA_speed_pid.SetPoint  = 0;
-                g_MA_current_pid.SetPoint  = 0;
-                
-                g_bldc_motorB.run_flag = STOP;
-                g_MB_speed_pid.SetPoint  = 0;
-                g_MB_current_pid.SetPoint  = 0;
-                
-                g_bldc_motorA.brake_flag = 1;
-                g_bldc_motorB.brake_flag = 1;
-                g_bldc_motorA.brake_duty = (abs(motor_control) * MAX_BREAK) / 500;
-                g_bldc_motorB.brake_duty = (abs(motor_control) * MAX_BREAK) / 500;
-            }else if(motor_control > -30 && motor_control < 30)
-            {
-                g_bldc_motorA.brake_flag = 0;
-                g_bldc_motorA.run_flag = STOP;
-                g_MA_speed_pid.SetPoint  = 0;
-                g_MA_current_pid.SetPoint  = 0;
-                
-                g_bldc_motorB.brake_flag = 0;
-                g_bldc_motorB.run_flag = STOP;
-                g_MB_speed_pid.SetPoint  = 0;
-                g_MB_current_pid.SetPoint  = 0;
-                
-            }
+//            pid_sta = 1;
+//            g_MA_current_pid.SetPoint  = MAX_CURRENT / 3;
+//            g_MB_current_pid.SetPoint  = MAX_CURRENT / 3;
+//            
+//            //正转，反转，停止
+//            if(esp_control.dir)
+//            {
+//                g_bldc_motorA.dir = CCW;
+//                g_bldc_motorB.dir = CW;
+//                
+//            }else
+//            {
+//                g_bldc_motorA.dir = CW;
+//                g_bldc_motorB.dir = CCW;
+//                
+//            }
+//            //设置参数
+//            if(motor_control > 50)  // 加速
+//            {
+//                g_bldc_motorA.run_flag = RUN;
+//                g_bldc_motorB.run_flag = RUN;
+//                g_MA_speed_pid.SetPoint  = (abs(motor_control) * MAX_RPM) / 500;
+//                g_MB_speed_pid.SetPoint  = (abs(motor_control) * MAX_RPM) / 500;
+//            }else if(motor_control < -50)
+//            {
+//                g_bldc_motorA.run_flag = STOP;
+//                g_MA_speed_pid.SetPoint  = 0;
+//                g_MA_current_pid.SetPoint  = 0;
+//                
+//                g_bldc_motorB.run_flag = STOP;
+//                g_MB_speed_pid.SetPoint  = 0;
+//                g_MB_current_pid.SetPoint  = 0;
+//                
+//                g_bldc_motorA.brake_flag = 1;
+//                g_bldc_motorB.brake_flag = 1;
+//                g_bldc_motorA.brake_duty = (abs(motor_control) * MAX_BREAK) / 500;
+//                g_bldc_motorB.brake_duty = (abs(motor_control) * MAX_BREAK) / 500;
+//            }else if(motor_control > -30 && motor_control < 30)
+//            {
+//                g_bldc_motorA.brake_flag = 0;
+//                g_bldc_motorA.run_flag = STOP;
+//                g_MA_speed_pid.SetPoint  = 0;
+//                g_MA_current_pid.SetPoint  = 0;
+//                
+//                g_bldc_motorB.brake_flag = 0;
+//                g_bldc_motorB.run_flag = STOP;
+//                g_MB_speed_pid.SetPoint  = 0;
+//                g_MB_current_pid.SetPoint  = 0;
+//                
+//            }
             
         }else if(mode == 1)    //电流控制
         {
+            
             pid_sta = 1;
             g_MA_speed_pid.SetPoint  = MAX_RPM;
             g_MB_speed_pid.SetPoint  = MAX_RPM;
             
-            //正转，反转，停止
-            if(esp_control.dir)
-            {
-                g_bldc_motorA.dir = CCW;
-                g_bldc_motorB.dir = CW;
-                
-            }else
-            {
-                g_bldc_motorA.dir = CW;
-                g_bldc_motorB.dir = CCW;
-                
-            }
             //设置参数
-            if(motor_control > 50)  // 加速
+            if(motor_control > control_diff)  // 加速
             {
                 g_bldc_motorA.run_flag = RUN;
-                g_bldc_motorB.run_flag = RUN;
                 g_MA_current_pid.SetPoint  = (abs(motor_control) * MAX_CURRENT) / 500;
+                
+                g_bldc_motorB.run_flag = RUN;
                 g_MB_current_pid.SetPoint  = (abs(motor_control) * MAX_CURRENT) / 500;
-            }else if(motor_control < -50)
+            }else if(motor_control < -control_diff)  // 刹车
             {
-                g_bldc_motorA.brake_flag = 1;
-                g_bldc_motorA.brake_duty = (abs(motor_control) * MAX_BREAK) / 500;
-                g_bldc_motorA.run_flag = STOP;
                 g_MA_speed_pid.SetPoint  = 0;
                 g_MA_current_pid.SetPoint  = 0;
+                g_bldc_motorA.brake_flag = 1;
+                g_bldc_motorA.pwm_duty = 0;
+                g_bldc_motorA.brake_duty = Break_num[((abs(motor_control) - control_diff - 1) * 8) / (500 - control_diff)];
+                g_bldc_motorA.run_flag = STOP;
                 
-                g_bldc_motorB.brake_flag = 1;
-                g_bldc_motorB.brake_duty = (abs(motor_control) * MAX_BREAK) / 500;
-                g_bldc_motorB.run_flag = STOP;
                 g_MB_speed_pid.SetPoint  = 0;
                 g_MB_current_pid.SetPoint  = 0;
+                g_bldc_motorB.brake_flag = 1;
+                g_bldc_motorB.pwm_duty = 0;
+                g_bldc_motorB.brake_duty = g_bldc_motorA.brake_duty;
+                g_bldc_motorB.run_flag = STOP;
                 
-            }else if(motor_control > -30 && motor_control < 30)
+            }else
             {
                 g_bldc_motorA.brake_flag = 0;
                 g_bldc_motorA.run_flag = STOP;
@@ -215,9 +208,74 @@ void ESP32_fetinst(uint8_t mode)
                 g_bldc_motorB.run_flag = STOP;
                 g_MB_speed_pid.SetPoint  = 0;
                 g_MB_current_pid.SetPoint  = 0;
-
+                
+                //正转，反转，停止，只有在转速为0时才能切换
+                if(esp_control.dir)
+                {
+                    g_bldc_motorA.dir = CCW;
+                    g_bldc_motorB.dir = CW;
+                    
+                }else
+                {
+                    g_bldc_motorA.dir = CW;
+                    g_bldc_motorB.dir = CCW;
+                    
+                }
+                
             }
             
+            
+//            pid_sta = 1;
+//            g_MA_speed_pid.SetPoint  = MAX_RPM;
+//            g_MB_speed_pid.SetPoint  = MAX_RPM;
+//            
+//            //正转，反转，停止
+//            if(esp_control.dir)
+//            {
+//                g_bldc_motorA.dir = CCW;
+//                g_bldc_motorB.dir = CW;
+//                
+//            }else
+//            {
+//                g_bldc_motorA.dir = CW;
+//                g_bldc_motorB.dir = CCW;
+//                
+//            }
+//            //设置参数
+//            if(motor_control > 50)  // 加速
+//            {
+//                g_bldc_motorA.run_flag = RUN;
+//                g_bldc_motorB.run_flag = RUN;
+//                g_MA_current_pid.SetPoint  = (abs(motor_control) * MAX_CURRENT) / 500;
+//                g_MB_current_pid.SetPoint  = (abs(motor_control) * MAX_CURRENT) / 500;
+//            }else if(motor_control < -50)
+//            {
+//                g_bldc_motorA.brake_flag = 1;
+//                g_bldc_motorA.brake_duty = (abs(motor_control) * MAX_BREAK) / 500;
+//                g_bldc_motorA.run_flag = STOP;
+//                g_MA_speed_pid.SetPoint  = 0;
+//                g_MA_current_pid.SetPoint  = 0;
+//                
+//                g_bldc_motorB.brake_flag = 1;
+//                g_bldc_motorB.brake_duty = (abs(motor_control) * MAX_BREAK) / 500;
+//                g_bldc_motorB.run_flag = STOP;
+//                g_MB_speed_pid.SetPoint  = 0;
+//                g_MB_current_pid.SetPoint  = 0;
+//                
+//            }else if(motor_control > -30 && motor_control < 30)
+//            {
+//                g_bldc_motorA.brake_flag = 0;
+//                g_bldc_motorA.run_flag = STOP;
+//                g_MA_speed_pid.SetPoint  = 0;
+//                g_MA_current_pid.SetPoint  = 0;
+//                
+//                g_bldc_motorB.brake_flag = 0;
+//                g_bldc_motorB.run_flag = STOP;
+//                g_MB_speed_pid.SetPoint  = 0;
+//                g_MB_current_pid.SetPoint  = 0;
+
+//            }
+//            
         }else if(mode == 2)    //占空比控制
         {
             pid_sta = 0;
@@ -227,31 +285,19 @@ void ESP32_fetinst(uint8_t mode)
             g_MB_speed_pid.SetPoint  = 0;
             g_MB_current_pid.SetPoint  = 0;
             
-            //正转，反转，停止
-            if(esp_control.dir)
-            {
-                g_bldc_motorA.dir = CCW;
-                g_bldc_motorB.dir = CW;
-                
-            }else
-            {
-                g_bldc_motorA.dir = CW;
-                g_bldc_motorB.dir = CCW;
-                
-            }
             //设置参数
-            if(motor_control > 50)  // 加速
+            if(motor_control > control_diff)  // 加速
             {
                 g_bldc_motorA.run_flag = RUN;
-                g_bldc_motorA.pwm_duty = (abs(motor_control) * MAX_PWM) / 500;
+                g_bldc_motorA.pwm_duty = (g_bldc_motorA.pwm_duty * 3 + (abs(motor_control) * MAX_PWM) / 500)/4;
                 
                 g_bldc_motorB.run_flag = RUN;
-                g_bldc_motorB.pwm_duty = (abs(motor_control) * MAX_PWM) / 500;
-            }else if(motor_control < -50)
+                g_bldc_motorB.pwm_duty = (g_bldc_motorB.pwm_duty * 3 + (abs(motor_control) * MAX_PWM) / 500)/4;
+            }else if(motor_control < -control_diff)  // 刹车
             {
                 g_bldc_motorA.brake_flag = 1;
                 g_bldc_motorA.pwm_duty = 0;
-                g_bldc_motorA.brake_duty = Break_num[((abs(motor_control) - 51) * 8) / 450];
+                g_bldc_motorA.brake_duty = Break_num[((abs(motor_control) - control_diff - 1) * 8) / (500 - control_diff)];
                 g_bldc_motorA.run_flag = STOP;
                 
                 g_bldc_motorB.brake_flag = 1;
@@ -259,8 +305,9 @@ void ESP32_fetinst(uint8_t mode)
                 g_bldc_motorB.brake_duty = g_bldc_motorA.brake_duty;
                 g_bldc_motorB.run_flag = STOP;
                 
-            }else if(motor_control > -30 && motor_control < 30)
+            }else
             {
+                //清空PWM
                 g_bldc_motorA.brake_flag = 0;
                 g_bldc_motorA.run_flag = STOP;
                 g_bldc_motorA.pwm_duty = 0;
@@ -269,6 +316,19 @@ void ESP32_fetinst(uint8_t mode)
                 g_bldc_motorB.run_flag = STOP;
                 g_bldc_motorB.pwm_duty = 0;
                 
+                //正转，反转，停止，只有在转速为0时才能切换
+                if(esp_control.dir)
+                {
+                    g_bldc_motorA.dir = CCW;
+                    g_bldc_motorB.dir = CW;
+                    
+                }else
+                {
+                    g_bldc_motorA.dir = CW;
+                    g_bldc_motorB.dir = CCW;
+                    
+                }
+                
             }
             
         }
@@ -276,12 +336,14 @@ void ESP32_fetinst(uint8_t mode)
     {
         if((time_num - esp32_lose_time) > 1000)
         {
-            g_bldc_motorA.brake_flag = 0;
+            g_bldc_motorA.brake_flag = 1;
+            g_bldc_motorA.brake_duty = Break_num[3];
             g_bldc_motorA.run_flag = STOP;
             g_MA_speed_pid.SetPoint  = 0;
             g_MA_current_pid.SetPoint  = 0;
             
-            g_bldc_motorB.brake_flag = 0;
+            g_bldc_motorB.brake_flag = 1;
+            g_bldc_motorA.brake_duty = Break_num[3];
             g_bldc_motorB.run_flag = STOP;
             g_MB_speed_pid.SetPoint  = 0;
             g_MB_current_pid.SetPoint  = 0;

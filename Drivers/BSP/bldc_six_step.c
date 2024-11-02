@@ -253,7 +253,7 @@ void MA_break(void)
     g_MA_timx_handle.Instance->CCR3 = 0;                        /* W相上桥臂 */
     
         /******* 下桥臂GPIO部分 ******/
-    if(break_motorA < 17)
+    if(break_motorA < 20)
     {
         break_motorA++;
     }else
@@ -424,7 +424,7 @@ void MB_break(void)
     g_MB_timx_handle.Instance->CCR3 = 0;                        /* W相上桥臂 */
     
     /******* 下桥臂GPIO部分 ******/
-    if(break_motorB < 17)
+    if(break_motorB < 20)
     {
         break_motorB++;
     }else

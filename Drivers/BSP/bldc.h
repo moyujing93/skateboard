@@ -97,13 +97,12 @@
 /*************************************** 电机控制状态 ***********************************************/
 #define CCW                         (1)                 /* 逆时针 */
 #define CW                          (2)                 /* 顺时针 */
-#define HALL_ERROR                  (0xF0)              /* 霍尔错误标志 */
 #define RUN                         (1)                 /* 电机运动标志 */
 #define STOP                        (0)                 /* 电机停机标志 */
-#define MAX_PWM                     (300)               /* 最大占空比0-1000 */
+#define MAX_PWM                     (850)               /* 最大占空比0-1000 */
 #define HOT_OTP                     (9000)             /* 高温保护阈值25度=2500 */
-#define MAX_CURRENT                 (15000)             /* 最大电流ma */
-#define MAX_RPM                     (2500)             /* 最大转速RPM/MIN */
+#define MAX_CURRENT                 (35000)             /* 最大电流ma */
+#define MAX_RPM                     (7500)             /* 最大转速RPM/MIN */
 #define MAX_BREAK                   (40)              /* 最大刹车占空比 % */
 
 /***************************************** 函数 *************************************************/
@@ -125,6 +124,7 @@ typedef struct
     volatile uint8_t    max_t;   /* 过热保护 */
     volatile uint8_t    step_sta;       /* 本次霍尔状态 */
     volatile uint32_t    hall_speed_num;/* 计算转速的计数值 */
+    volatile uint8_t     hall_erro;     /* 本次霍尔错误 */
 //    volatile uint8_t    step_last;      /* 上次霍尔状态 */
     volatile uint8_t    dir;            /* 电机旋转方向 */
 //    volatile int32_t    pos;            /* 电机位置 */
