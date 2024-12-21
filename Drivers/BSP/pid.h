@@ -34,12 +34,12 @@
 #if INCR_LOCT_SELECT
 
 /* 转速PID参数相关宏 */
-#define  KP_S      0.002f               /* P参数 0.05*/
-#define  KI_S      0.002f               /* I参数 0.02*/
+#define  KP_S      0.005f               /* P参数 0.05*/
+#define  KI_S      0.005f               /* I参数 0.02*/
 #define  KD_S      0.00f                /* D参数*/
 
 /* 电流PID参数相关宏 */
-#define  KP_C      0.0015f               /* P参数  0.005*/
+#define  KP_C      0.002f               /* P参数  0.005*/
 #define  KI_C      0.001f               /* I参数  0.002*/
 #define  KD_C      0.00f                /* D参数*/
 

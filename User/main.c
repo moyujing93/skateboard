@@ -25,6 +25,7 @@
 
 uint16_t time_max_c = 0;
 uint16_t time_locked_rotor = 0;
+char time_dir = 1;
 
 void over_load(_bldc_obj *motor_temp);
 
@@ -44,28 +45,32 @@ int main(void)
     #else
     rs485_init(115200);
     #endif
-    delay_ms(100);
+    delay_ms(200);
     
     
-    g_bldc_motorA.pwm_duty = RESET;
+    g_bldc_motorA.pwm_duty = 0;
     g_bldc_motorA.run_flag = STOP;
     g_bldc_motorA.dir = CCW;
     g_bldc_motorA.max_c = RESET;
     g_bldc_motorA.max_t = RESET;
+    g_bldc_motorA.hall_erro = RESET;
+    g_bldc_motorA.v_bus = 20000;
     
     
-    g_bldc_motorB.pwm_duty = RESET;
+    g_bldc_motorB.pwm_duty = 0;
     g_bldc_motorB.run_flag = STOP;
     g_bldc_motorB.dir = CW;
     g_bldc_motorB.max_c = RESET;
     g_bldc_motorB.max_t = RESET;
+    g_bldc_motorB.hall_erro = RESET;
+    g_bldc_motorB.v_bus = 20000;
     
-                    
-    bldc_init(1000-1,4-1);
-    delay_ms(1000);
+    
+    bldc_init(1000-1,6-1);
+    delay_ms(500);
     
     adc1_dma_init();
-    pid_init(200);
+    pid_init(100);
     
     
     while(1)
@@ -78,7 +83,7 @@ int main(void)
             pulse_fetinst(0) ;
             #else
             /* wifi_now */
-            ESP32_fetinst(2);
+            ESP32_fetinst(1);
             #endif
         }
         
@@ -112,7 +117,14 @@ int main(void)
         
         
         
-        time_num ++;
+        if(time_num == 0xffffffff)
+        {
+            time_dir = -1;
+        }else if(time_num == 0)
+        {
+            time_dir = 1;
+        }
+        time_num += time_dir;
         delay_ms(1);
     }
 }
@@ -122,6 +134,12 @@ int main(void)
 
 void over_load(_bldc_obj *motor_temp)
 {
+    //低电压保护6s
+    if(motor_temp->v_bus  <  18000)
+    {
+        motor_temp->hall_erro = SET;
+    }
+    
     //温度保护与释放
     if(motor_temp->v_t  >  HOT_OTP)
     {
@@ -158,4 +176,5 @@ void over_load(_bldc_obj *motor_temp)
  精英板开启RS485控制MDR
 
 */
+
 

@@ -29,21 +29,56 @@
 
 volatile uint32_t time_num = 0;
 
-volatile uint8_t MA_hall_speed_sta = 0x01;   // 120度霍尔状态最小值为1，60度为0
-volatile uint8_t MB_hall_speed_sta = 0x01;   // 120度霍尔状态最小值为1，60度为0
+//计算转速用
+volatile uint8_t MA_hall_speed_sta = 0x01;
+volatile uint8_t MB_hall_speed_sta = 0x01;
 
-/*  六步换向函数指针数组 */
-pctr pfunclist_motorA[6] =
+//霍尔异常计数
+volatile uint16_t MA_hall_error_count = 0x01;
+volatile uint16_t MB_hall_error_count = 0x01;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//100,110,010,011,001,101
+/*  函数指针数组 */
+pctr pfunclist_motorA_cw[6] =
 {
     &MA_whvl,&MA_vhul,&MA_whul,
     &MA_uhwl,&MA_uhvl,&MA_vhwl
 };
 
-pctr pfunclist_motorB[6] =
+pctr pfunclist_motorA_ccw[6] =
+{
+    &MA_vhwl,&MA_uhvl,&MA_uhwl,
+    &MA_whul,&MA_vhul,&MA_whvl
+};
+
+pctr pfunclist_motorB_cw[6] =
 {
     &MB_whvl,&MB_vhul,&MB_whul,
     &MB_uhwl,&MB_uhvl,&MB_vhwl
 };
+
+pctr pfunclist_motorB_ccw[6] =
+{
+    &MB_vhwl,&MB_uhvl,&MB_uhwl,
+    &MB_whul,&MB_vhul,&MB_whvl
+};
+
 
 /* 电机结构体初始值 */
 _bldc_obj g_bldc_motorA = {0};
@@ -73,6 +108,21 @@ int int_limit(int num,int min ,int max)
     }
     return get_num;
 }
+/**
+ * @brief       整形限幅函数
+ * @param       变量
+ * @param       最小值
+ * @param       最大值
+ * @retval      
+ */
+int int_abs(int num)
+{
+    if(num < 0)
+    {
+        return -num;
+    }
+    return num;
+}
 
 
 /***************************************** 函数部分 *************************************************/
@@ -88,6 +138,7 @@ void bldc_init(uint16_t arr, uint16_t psc)
     TIM_OC_InitTypeDef  g_atimx_oc_chy_handle;
     GPIO_InitTypeDef gpio_init_struct;
     
+    uint16_t dey_time = (1.0f/(72.0f / (arr*psc)))/2.0f;
     /**********************打开时钟************************/
     
     __HAL_RCC_GPIOA_CLK_ENABLE();
@@ -121,7 +172,7 @@ void bldc_init(uint16_t arr, uint16_t psc)
     g_atimx_oc_chy_handle.Pulse = 0;                            /* 比较值 */
     g_atimx_oc_chy_handle.OCPolarity = TIM_OCPOLARITY_HIGH;     /* 极性 */
     g_atimx_oc_chy_handle.OCNPolarity = TIM_OCPOLARITY_HIGH;   /* 互补通道极性 */
-    g_atimx_oc_chy_handle.OCFastMode = TIM_OCFAST_ENABLE;
+    g_atimx_oc_chy_handle.OCFastMode = TIM_OCFAST_DISABLE;
     g_atimx_oc_chy_handle.OCIdleState = TIM_OCIDLESTATE_RESET;
     g_atimx_oc_chy_handle.OCNIdleState = TIM_OCIDLESTATE_RESET;
     HAL_TIM_PWM_ConfigChannel(&g_MA_timx_handle,&g_atimx_oc_chy_handle,TIM_CHANNEL_1);
@@ -133,21 +184,26 @@ void bldc_init(uint16_t arr, uint16_t psc)
 //    g_sbreak_dead_time_config.OffStateRunMode = TIM_OSSR_DISABLE;           /* 运行模式的关闭输出状态 */
 //    g_sbreak_dead_time_config.OffStateIDLEMode = TIM_OSSI_DISABLE;          /* 空闲模式的关闭输出状态 */
 //    g_sbreak_dead_time_config.LockLevel = TIM_LOCKLEVEL_OFF;                /* 不用寄存器锁功能 */
-    g_sbreak_dead_time_config.BreakState = TIM_BREAK_DISABLE;                /* 使能刹车输入 */
-    __HAL_TIM_MOE_ENABLE(&g_MA_timx_handle);  /* MOE=1,使能主输出 */
-    g_sbreak_dead_time_config.DeadTime = 0x3f;       /* 死区时间设置 */
-    HAL_TIMEx_ConfigBreakDeadTime(&g_MA_timx_handle, &g_sbreak_dead_time_config);
+
+//    g_sbreak_dead_time_config.BreakState = TIM_BREAK_DISABLE;                /* 使能刹车输入 */
+//    __HAL_TIM_MOE_ENABLE(&g_MA_timx_handle);  /* MOE=1,使能主输出 */
+//    g_sbreak_dead_time_config.DeadTime = 0x3f;       /* 死区时间设置 */
+//    HAL_TIMEx_ConfigBreakDeadTime(&g_MA_timx_handle, &g_sbreak_dead_time_config);
     
-    /* 开启定时器输出 */
-    HAL_NVIC_SetPriority(TIM8_UP_IRQn, 2, 0);               /* 优先级高 */
-    HAL_NVIC_EnableIRQ(TIM8_UP_IRQn);
-    HAL_TIM_Base_Start_IT(&g_MA_timx_handle);                 /* 启动时基单元的更新中断 */
-    HAL_TIM_PWM_Start(&g_MA_timx_handle,TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start(&g_MA_timx_handle,TIM_CHANNEL_2);
-    HAL_TIM_PWM_Start(&g_MA_timx_handle,TIM_CHANNEL_3);
-    HAL_TIMEx_PWMN_Start(&g_MA_timx_handle,TIM_CHANNEL_1);
-    HAL_TIMEx_PWMN_Start(&g_MA_timx_handle,TIM_CHANNEL_2);
-    HAL_TIMEx_PWMN_Start(&g_MA_timx_handle,TIM_CHANNEL_3);
+
+
+//    HAL_NVIC_SetPriority(TIM8_CC_IRQn, 2, 0);               /* 优先级高 */
+//    HAL_NVIC_EnableIRQ(TIM8_CC_IRQn);
+//    HAL_TIM_Base_Start(&g_MA_timx_handle);                 /* 启动时基单元的更新中断 */
+//    HAL_TIM_PWM_Start_IT(&g_MA_timx_handle,TIM_CHANNEL_1);
+//    HAL_TIM_PWM_Start_IT(&g_MA_timx_handle,TIM_CHANNEL_2);
+//    HAL_TIM_PWM_Start_IT(&g_MA_timx_handle,TIM_CHANNEL_3);
+
+
+
+//    HAL_TIMEx_PWMN_Start(&g_MA_timx_handle,TIM_CHANNEL_1);
+//    HAL_TIMEx_PWMN_Start(&g_MA_timx_handle,TIM_CHANNEL_2);
+//    HAL_TIMEx_PWMN_Start(&g_MA_timx_handle,TIM_CHANNEL_3);
 
 
     /* 下桥臂引脚初始化 */
@@ -157,7 +213,7 @@ void bldc_init(uint16_t arr, uint16_t psc)
     gpio_init_struct.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(GPIOB, &gpio_init_struct);
     gpio_init_struct.Pin = MA_UL_PIN;
-    HAL_GPIO_Init(GPIOA, &gpio_init_struct);
+    HAL_GPIO_Init(MA_UL_PORT, &gpio_init_struct);
     
     /* 霍尔引脚初始化 */
     gpio_init_struct.Pin = MA_HALL_U_PIN | MA_HALL_V_PIN | MA_HALL_W_PIN;
@@ -165,7 +221,6 @@ void bldc_init(uint16_t arr, uint16_t psc)
     gpio_init_struct.Pull = GPIO_PULLUP;
     gpio_init_struct.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(GPIOB, &gpio_init_struct);
-    
     
     
     /*********************MOTORB*************************/
@@ -192,7 +247,7 @@ void bldc_init(uint16_t arr, uint16_t psc)
     g_atimx_oc_chy_handle.Pulse = 0;                            /* 比较值 */
     g_atimx_oc_chy_handle.OCPolarity = TIM_OCPOLARITY_HIGH;     /* 极性 */
     g_atimx_oc_chy_handle.OCNPolarity = TIM_OCPOLARITY_HIGH;   /* 互补通道极性 */
-    g_atimx_oc_chy_handle.OCFastMode = TIM_OCFAST_ENABLE;
+    g_atimx_oc_chy_handle.OCFastMode = TIM_OCFAST_DISABLE;
     g_atimx_oc_chy_handle.OCIdleState = TIM_OCIDLESTATE_RESET;
     g_atimx_oc_chy_handle.OCNIdleState = TIM_OCIDLESTATE_RESET;
     HAL_TIM_PWM_ConfigChannel(&g_MB_timx_handle,&g_atimx_oc_chy_handle,TIM_CHANNEL_1);
@@ -203,21 +258,26 @@ void bldc_init(uint16_t arr, uint16_t psc)
 //    g_sbreak_dead_time_config.OffStateRunMode = TIM_OSSR_DISABLE;           /* 运行模式的关闭输出状态 */
 //    g_sbreak_dead_time_config.OffStateIDLEMode = TIM_OSSI_DISABLE;          /* 空闲模式的关闭输出状态 */
 //    g_sbreak_dead_time_config.LockLevel = TIM_LOCKLEVEL_OFF;                /* 不用寄存器锁功能 */
-    g_sbreak_dead_time_config.BreakState = TIM_BREAK_DISABLE;                /* 使能刹车输入 */
-    __HAL_TIM_MOE_ENABLE(&g_MB_timx_handle);  /* MOE=1,使能主输出 */
-    g_sbreak_dead_time_config.DeadTime = 0x3f;       /* 死区时间设置 */
-    HAL_TIMEx_ConfigBreakDeadTime(&g_MB_timx_handle, &g_sbreak_dead_time_config);
+
+//    g_sbreak_dead_time_config.BreakState = TIM_BREAK_DISABLE;                /* 使能刹车输入 */
+//    __HAL_TIM_MOE_ENABLE(&g_MB_timx_handle);  /* MOE=1,使能主输出 */
+//    g_sbreak_dead_time_config.DeadTime = 0x3f;       /* 死区时间设置 */
+//    HAL_TIMEx_ConfigBreakDeadTime(&g_MB_timx_handle, &g_sbreak_dead_time_config);
     
-    /* 开启定时器输出 */
-    HAL_NVIC_SetPriority(TIM1_UP_IRQn, 2, 0);               /* 优先级高 */
-    HAL_NVIC_EnableIRQ(TIM1_UP_IRQn);
-    HAL_TIM_Base_Start_IT(&g_MB_timx_handle);                 /* 启动时基单元的更新中断 */
-    HAL_TIM_PWM_Start(&g_MB_timx_handle,TIM_CHANNEL_1);
-    HAL_TIM_PWM_Start(&g_MB_timx_handle,TIM_CHANNEL_2);
-    HAL_TIM_PWM_Start(&g_MB_timx_handle,TIM_CHANNEL_3);
-    HAL_TIMEx_PWMN_Start(&g_MB_timx_handle,TIM_CHANNEL_1);
-    HAL_TIMEx_PWMN_Start(&g_MB_timx_handle,TIM_CHANNEL_2);
-    HAL_TIMEx_PWMN_Start(&g_MB_timx_handle,TIM_CHANNEL_3);
+    
+    
+    
+//    HAL_NVIC_SetPriority(TIM1_CC_IRQn, 2, 0);               /* 优先级高 */
+//    HAL_NVIC_EnableIRQ(TIM1_CC_IRQn);
+//    HAL_TIM_Base_Start(&g_MB_timx_handle);                 /* 启动时基单元的更新中断 */
+//    HAL_TIM_PWM_Start_IT(&g_MB_timx_handle,TIM_CHANNEL_1);
+//    HAL_TIM_PWM_Start_IT(&g_MB_timx_handle,TIM_CHANNEL_2);
+//    HAL_TIM_PWM_Start_IT(&g_MB_timx_handle,TIM_CHANNEL_3);
+
+
+//    HAL_TIMEx_PWMN_Start(&g_MB_timx_handle,TIM_CHANNEL_1);
+//    HAL_TIMEx_PWMN_Start(&g_MB_timx_handle,TIM_CHANNEL_2);
+//    HAL_TIMEx_PWMN_Start(&g_MB_timx_handle,TIM_CHANNEL_3);
 
 
     /* 下桥臂引脚初始化 */
@@ -234,6 +294,24 @@ void bldc_init(uint16_t arr, uint16_t psc)
     gpio_init_struct.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(GPIOC, &gpio_init_struct);
     
+    
+    
+    /* 开启定时器输出 */
+    HAL_NVIC_SetPriority(TIM1_UP_IRQn, 2, 0);               /* 优先级高 */
+    HAL_NVIC_EnableIRQ(TIM1_UP_IRQn);
+    HAL_TIM_Base_Start_IT(&g_MB_timx_handle);                 /* 启动时基单元的更新中断 */
+    HAL_TIM_PWM_Start(&g_MB_timx_handle,TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&g_MB_timx_handle,TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&g_MB_timx_handle,TIM_CHANNEL_3);
+    
+    delay_us(dey_time);
+        /* 开启定时器输出 */
+    HAL_NVIC_SetPriority(TIM8_UP_IRQn, 2, 0);               /* 优先级高 */
+    HAL_NVIC_EnableIRQ(TIM8_UP_IRQn);
+    HAL_TIM_Base_Start_IT(&g_MA_timx_handle);                 /* 启动时基单元的更新中断 */
+    HAL_TIM_PWM_Start(&g_MA_timx_handle,TIM_CHANNEL_1);
+    HAL_TIM_PWM_Start(&g_MA_timx_handle,TIM_CHANNEL_2);
+    HAL_TIM_PWM_Start(&g_MA_timx_handle,TIM_CHANNEL_3);
     
 }
 
@@ -313,12 +391,56 @@ void TIM8_UP_IRQHandler(void)
 }
 
 
+//void TIM1_CC_IRQHandler(void)
+//{
+//    HAL_TIM_IRQHandler(&g_MB_timx_handle);
+//}
+
+//void TIM8_CC_IRQHandler(void)
+//{
+//    HAL_TIM_IRQHandler(&g_MA_timx_handle);
+//}
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+//void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
     if(htim->Instance == TIM8)
     {
+        /*          霍尔检测        */
+        g_bldc_motorA.step_sta = hallsensor_get_state(MOTORA);
+        
+        if(g_bldc_motorA.step_sta == 0 || g_bldc_motorA.step_sta >= 7)
+        {
+            g_bldc_motorA.hall_erro = SET;
+            MA_hall_error_count = 0;
+        }else
+        {
+            if(MA_hall_error_count > 20000)
+            {
+                g_bldc_motorA.hall_erro = RESET;
+            }else
+            {
+                MA_hall_error_count++;
+            }
+            
+        }
+        
+        /*          增加速度计算参数        */
+        if(g_bldc_motorA.step_sta == MA_hall_speed_sta)/* 相等说明走完三步了 */
+        {
+            g_bldc_motorA.hall_speed_num++;
+            if(MA_hall_speed_sta == 5)
+            {
+               MA_hall_speed_sta = 1;
+            }
+            else
+            {
+                MA_hall_speed_sta = 5;
+            }
+        }
+        
         /*          换相函数        */
-        if(g_bldc_motorA.run_flag == STOP)
+        if(g_bldc_motorA.run_flag == STOP || g_bldc_motorA.hall_erro == SET)
         {
             if(g_bldc_motorA.brake_flag == 1)
             {
@@ -330,40 +452,51 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             
         }else if(g_bldc_motorA.run_flag == RUN)
         {
-            /*          霍尔检测        */
             if(g_bldc_motorA.dir == CCW)                                     /* 反转 */
             {
-                g_bldc_motorA.step_sta = 7 - hallsensor_get_state(MOTORA);
+                pfunclist_motorA_ccw[g_bldc_motorA.step_sta - 1]();
+            }else
+            {
+                pfunclist_motorA_cw[g_bldc_motorA.step_sta - 1]();
+            }
+        }
+    }else if(htim->Instance == TIM1)
+    {
+        /*          霍尔检测        */
+        g_bldc_motorB.step_sta = hallsensor_get_state(MOTORB);
+        
+        if(g_bldc_motorB.step_sta == 0 || g_bldc_motorB.step_sta >= 7)
+        {
+            g_bldc_motorB.hall_erro = SET;
+            MB_hall_error_count = 0;
+        }else
+        {
+            if(MB_hall_error_count > 20000)
+            {
+                g_bldc_motorB.hall_erro = RESET;
+            }else
+            {
+                MB_hall_error_count++;
+            }
+            
+        }
+        
+        /*          增加速度计算参数        */
+        if(g_bldc_motorB.step_sta == MB_hall_speed_sta)/* 相等说明走完三步了 */
+        {
+            g_bldc_motorB.hall_speed_num++;
+            if(MB_hall_speed_sta == 5)
+            {
+               MB_hall_speed_sta = 1;
             }
             else
             {
-                g_bldc_motorA.step_sta = hallsensor_get_state(MOTORA);
-            }
-            
-            if((g_bldc_motorA.step_sta <= 6)&&(g_bldc_motorA.step_sta >= 1))/* 判断霍尔组合值是否正常 */
-            {
-                pfunclist_motorA[g_bldc_motorA.step_sta - 1]();                   /* 通过数组成员查找对应的函数指针 */
-            }
-            
-            /*          增加速度计算参数        */
-            if(g_bldc_motorA.step_sta == MA_hall_speed_sta)/* 相等说明走完三步了 */
-            {
-                g_bldc_motorA.hall_speed_num++;
-                if(MA_hall_speed_sta == 5)
-                {
-                   MA_hall_speed_sta = 1;
-                }
-                else
-                {
-                    MA_hall_speed_sta = 5;
-                }
+                MB_hall_speed_sta = 5;
             }
         }
         
-    }else if(htim->Instance == TIM1)
-    {
         /*          换相函数        */
-        if(g_bldc_motorB.run_flag == STOP)
+        if(g_bldc_motorB.run_flag == STOP || g_bldc_motorB.hall_erro == SET)
         {
             if(g_bldc_motorB.brake_flag == 1)
             {
@@ -374,35 +507,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
             }
         }else if(g_bldc_motorB.run_flag == RUN)
         {
-            /*          霍尔检测        */
             if(g_bldc_motorB.dir == CCW)                                     /* 反转 */
             {
-                g_bldc_motorB.step_sta = 7 - hallsensor_get_state(MOTORB);
-            }
-            else
+                pfunclist_motorB_ccw[g_bldc_motorB.step_sta - 1]();
+            }else
             {
-                g_bldc_motorB.step_sta = hallsensor_get_state(MOTORB);
-            }
-            
-            if((g_bldc_motorB.step_sta <= 6)&&(g_bldc_motorB.step_sta >= 1))/* 判断霍尔组合值是否正常 */
-            {
-                pfunclist_motorB[g_bldc_motorB.step_sta - 1]();                   /* 通过数组成员查找对应的函数指针 */
-            }
-            
-            /*          增加速度计算参数        */
-            if(g_bldc_motorB.step_sta == MB_hall_speed_sta)/* 相等说明走完三步了 */
-            {
-                g_bldc_motorB.hall_speed_num++;
-                if(MB_hall_speed_sta == 5)
-                {
-                   MB_hall_speed_sta = 1;
-                }
-                else
-                {
-                    MB_hall_speed_sta = 5;
-                }
+                pfunclist_motorB_cw[g_bldc_motorB.step_sta - 1]();
             }
         }
-        
     }
 }

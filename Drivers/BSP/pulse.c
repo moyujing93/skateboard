@@ -140,8 +140,8 @@ void pulse_fetinst(uint8_t mode)
             
             if(mode)      //转速控制
             {
-                g_MA_current_pid.SetPoint  = MAX_CURRENT / 2;
-                g_MB_current_pid.SetPoint  = MAX_CURRENT / 2;
+                g_MA_current_pid.SetPoint  = SET_CURRENT / 2;
+                g_MB_current_pid.SetPoint  = SET_CURRENT / 2;
                 
                 //正转，反转，停止
                 if(motor_control < -50)
@@ -191,8 +191,8 @@ void pulse_fetinst(uint8_t mode)
                     g_bldc_motorB.dir = CW;
                     g_bldc_motorB.run_flag = RUN;
                     
-                    g_MA_current_pid.SetPoint  = (abs(motor_control) * MAX_CURRENT) / 500;
-                    g_MB_current_pid.SetPoint  = (abs(motor_control) * MAX_CURRENT) / 500;
+                    g_MA_current_pid.SetPoint  = (abs(motor_control) * SET_CURRENT) / 500;
+                    g_MB_current_pid.SetPoint  = (abs(motor_control) * SET_CURRENT) / 500;
                 }else if(motor_control < -50)
                 {
                     g_bldc_motorA.dir = CW;
@@ -201,8 +201,8 @@ void pulse_fetinst(uint8_t mode)
                     g_bldc_motorB.dir = CCW;
                     g_bldc_motorB.run_flag = RUN;
                     
-                    g_MA_current_pid.SetPoint  = (abs(motor_control) * MAX_CURRENT) / 500;
-                    g_MB_current_pid.SetPoint  = (abs(motor_control) * MAX_CURRENT) / 500;
+                    g_MA_current_pid.SetPoint  = (abs(motor_control) * SET_CURRENT) / 500;
+                    g_MB_current_pid.SetPoint  = (abs(motor_control) * SET_CURRENT) / 500;
                 }else
                 {
                     g_bldc_motorA.run_flag = STOP;

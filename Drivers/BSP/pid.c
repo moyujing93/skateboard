@@ -165,6 +165,60 @@ int32_t increment_pid_ctrl(PID_TypeDef *PID,float Feedback_value)
 }
 
 
+
+/**
+ * @brief       中断服务函数，不调用公共处理函数。
+ * @param       
+ * @retval      
+ */
+static void motor_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid_speed,PID_TypeDef* pid_current)
+{
+    
+    uint16_t pwm_temp1;
+    uint16_t pwm_temp2;
+    if(pid_bldc_motor->run_flag == RUN  &&  pid_bldc_motor->max_t == RESET  && pid_bldc_motor->hall_erro == RESET)
+    {
+//        if (pid_bldc_motor->max_c == SET)
+//        {
+//            pid_current->SetPoint = pid_current->SetPoint / 2;
+//        }
+        pwm_temp1 = increment_pid_ctrl(pid_current,pid_bldc_motor->current);
+        pwm_temp2 = increment_pid_ctrl(pid_speed,pid_bldc_motor->speed);
+        
+        /* 实际值为0时限制 */
+//        if(pid_bldc_motor->speed < 100)
+//        {
+//            if(pid_speed->ActualValue > 200 + ((pid_bldc_motor->speed / 100.0f) * (MAX_PWM - 200)))
+//            {
+//                pid_speed->ActualValue = 200 + ((pid_bldc_motor->speed / 100.0f) * (MAX_PWM - 200));
+//                pwm_temp2 = pid_speed->ActualValue;
+//            }
+//        }
+        
+        if(pwm_temp1 > pwm_temp2)
+        {
+          pid_bldc_motor->pwm_duty = pwm_temp2;
+          //让两个PID的起点在同一起点,pid切换会更平滑
+          pid_current->ActualValue = pid_speed->ActualValue;
+        }
+        else
+        {
+          pid_bldc_motor->pwm_duty = pwm_temp1;
+          //让两个PID的起点在同一起点,pid切换会更平滑
+          pid_speed->ActualValue = pid_current->ActualValue;
+        }
+    }else
+    {
+        pid_speed->ActualValue = 0;
+        pid_speed->LastError = 0;
+        pid_speed->PrevError = 0;
+        pid_current->ActualValue = 0;
+        pid_current->LastError = 0;
+        pid_current->PrevError = 0;
+        pid_bldc_motor->pwm_duty = 0;
+    }
+}
+
 /**
  * @brief       中断服务函数，不调用公共处理函数。
  * @param       
@@ -175,101 +229,19 @@ void TIM2_IRQHandler(void)
     /* TIM Update event */
     if (__HAL_TIM_GET_FLAG(&g_tim2_handle, TIM_FLAG_UPDATE) != RESET)
     {
-        static uint16_t pwm_temp1;
-        static uint16_t pwm_temp2;
-        
-        
         __HAL_TIM_CLEAR_IT(&g_tim2_handle, TIM_IT_UPDATE);
-        
         
         
         if(pid_sta)
         {
-            /***************MATOR A********************/
             
-            if(g_bldc_motorA.run_flag == RUN  &&  g_bldc_motorA.max_t == RESET  && g_bldc_motorA.locked_rotor == RESET)
-            {
-                if (g_bldc_motorA.max_c == SET)
-                {
-    //                g_MA_current_pid.SetPoint = g_MA_current_pid.SetPoint / 2;
-                }
-                pwm_temp1 = increment_pid_ctrl(&g_MA_current_pid,g_bldc_motorA.current);
-                pwm_temp2 = increment_pid_ctrl(&g_MA_speed_pid,g_bldc_motorA.speed);
-                
-                /* 实际值为0时限制 */
-                if(g_bldc_motorA.speed < 50)
-                {
-                    if(g_MA_speed_pid.ActualValue > 50)
-                    {
-                        g_MA_speed_pid.ActualValue = 50;
-                        pwm_temp2 = 50;
-                    }
-                }
-
-                if(pwm_temp1 >= pwm_temp2)
-                {
-                  g_bldc_motorA.pwm_duty = pwm_temp2;
-                  g_MA_current_pid.ActualValue = g_MA_speed_pid.ActualValue;
-                }
-                else
-                {
-                  g_bldc_motorA.pwm_duty = pwm_temp1;
-                  g_MA_speed_pid.ActualValue = g_MA_current_pid.ActualValue;
-                }
-            }else
-            {
-                g_MA_speed_pid.ActualValue = 0;
-                g_MA_speed_pid.LastError = 0;
-                g_MA_speed_pid.PrevError = 0;
-                g_MA_current_pid.ActualValue = 0;
-                g_MA_current_pid.LastError = 0;
-                g_MA_current_pid.PrevError = 0;
-                g_bldc_motorA.pwm_duty = 0;
-            }
-            
-            /***************MATOR B********************/
-            
-            if(g_bldc_motorB.run_flag == RUN  &&  g_bldc_motorB.max_t == RESET  && g_bldc_motorB.locked_rotor == RESET)
-            {
-                if (g_bldc_motorB.max_c == SET)
-                {
-    //                g_MA_current_pid.SetPoint = g_MA_current_pid.SetPoint / 2;
-                }
-                pwm_temp1 = increment_pid_ctrl(&g_MB_current_pid,g_bldc_motorB.current);
-                pwm_temp2 = increment_pid_ctrl(&g_MB_speed_pid,g_bldc_motorB.speed);
-
-                /* 实际值为0时限制 */
-                if(g_bldc_motorB.speed < 100)
-                {
-                    if(g_MB_speed_pid.ActualValue > 200 + ((g_bldc_motorB.speed / 100.0f) * (MAX_PWM - 200)))
-                    {
-                        g_MB_speed_pid.ActualValue = 200 + ((g_bldc_motorB.speed / 100.0f) * (MAX_PWM - 200));
-                        pwm_temp2 = g_MB_speed_pid.ActualValue;
-                    }
-                }
-
-                if(pwm_temp1 >= pwm_temp2)
-                {
-                  g_bldc_motorB.pwm_duty = pwm_temp2;
-                  g_MB_current_pid.ActualValue = g_MB_speed_pid.ActualValue;
-                }
-                else
-                {
-                  g_bldc_motorB.pwm_duty = pwm_temp1;
-                  g_MB_speed_pid.ActualValue = g_MB_current_pid.ActualValue;
-                }
-            }else
-            {
-                g_MB_speed_pid.ActualValue = 0;
-                g_MB_speed_pid.LastError = 0;
-                g_MB_speed_pid.PrevError = 0;
-                g_MB_current_pid.ActualValue = 0;
-                g_MB_current_pid.LastError = 0;
-                g_MB_current_pid.PrevError = 0;
-                g_bldc_motorB.pwm_duty = 0;
-            }
-            
+            motor_pid_set(&g_bldc_motorA,&g_MA_speed_pid,&g_MA_current_pid);
+            motor_pid_set(&g_bldc_motorB,&g_MB_speed_pid,&g_MB_current_pid);
             
         }
     }
 }
+
+
+
+

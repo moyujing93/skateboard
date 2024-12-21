@@ -36,22 +36,15 @@
  */
 #define USART_TX_GPIO_PORT                  GPIOB
 #define USART_TX_GPIO_PIN                   GPIO_PIN_6
-#define USART_TX_GPIO_CLK_ENABLE()          do{ __HAL_RCC_GPIOB_CLK_ENABLE(); }while(0)
 
 #define USART_RX_GPIO_PORT                  GPIOB
 #define USART_RX_GPIO_PIN                   GPIO_PIN_7
-#define USART_RX_GPIO_CLK_ENABLE()          do{ __HAL_RCC_GPIOB_CLK_ENABLE(); }while(0)
 
-#define USART_UX                            USART1
-#define USART_UX_IRQn                       USART1_IRQn
-#define USART_UX_IRQHandler                 USART1_IRQHandler
-#define USART_UX_CLK_ENABLE()               do{ __HAL_RCC_USART1_CLK_ENABLE(); }while(0)
 
 /******************************************************************************************/
 
 #define USART_REC_LEN               250         /* 定义最大接收字节数 200 */
 #define USART_EN_RX                 1           /* 使能（1）/禁止（0）串口1接收 */
-#define RXBUFFERSIZE                1           /* 缓存大小 */
 
 
 // 定义 ESP32 NOW 的 信息结构体
@@ -63,17 +56,27 @@ typedef struct {
   uint8_t dir;      /* 电机旋转方向 */
   uint8_t gears;      /* 档位 */
   uint8_t bb;
-} struct_send;
+} struct_read;
 
+
+// 定义 ESP32 NOW 的 信息结构体
+typedef struct
+{
+  // 发送的信息
+  uint8_t ff;
+  uint16_t speed;   /* 油门 */
+  uint16_t current; /* 电流:转速 */
+  uint16_t v_bus;   /* 电机旋转方向 */
+  uint16_t v_tee;   /* 档位 */
+  uint8_t bb;
+} struct_uart_send;
 
 //extern UART_HandleTypeDef g_uart1_handle;       /* HAL UART句柄 */
 extern volatile uint8_t g_usart_rx_sta;
 /*  接收到多少字节 */
 extern volatile uint8_t g_usart_rx_num;
 
-extern volatile struct_send   g_esp32_struct;
-
-extern volatile uint32_t esp32_lose_time;
+extern volatile struct_read   g_esp32_struct;
 
 void usart_init(uint32_t bound);                /* 串口初始化函数 */
 void usart_send_data(uint8_t *buf, uint8_t len);
