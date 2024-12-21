@@ -94,6 +94,16 @@
 #define MB_WL_PORT            GPIOB
 
 
+/*********************电机刹车，电源开关*************************/
+
+#define MX_POWER_PIN             GPIO_PIN_12
+#define MX_POWER_PORT            GPIOA
+
+#define MX_BKPWM_PIN             GPIO_PIN_11
+#define MX_BKPWM_PORT            GPIOA
+
+
+
 /*************************************** 电机控制状态 ***********************************************/
 #define CCW                         (1)                 /* 逆时针 */
 #define CW                          (2)                 /* 顺时针 */
@@ -124,12 +134,12 @@ typedef struct
     volatile uint8_t    max_c;   /* 过流保护 */
     volatile uint8_t    max_t;   /* 过热保护 */
     volatile uint8_t    step_sta;       /* 本次霍尔状态 */
-    volatile uint32_t    hall_speed_num;/* 计算转速的计数值 */
+    volatile int    hall_speed_num;/* 计算转速的计数值 */
     volatile uint8_t     hall_erro;     /* 本次霍尔错误 */
-//    volatile uint8_t    step_last;      /* 上次霍尔状态 */
+    volatile uint8_t    step_last;      /* 上次霍尔状态 */
     volatile uint8_t    dir;            /* 电机旋转方向 */
 //    volatile int32_t    pos;            /* 电机位置 */
-    volatile uint16_t    speed;          /* 电机速度 RMP/min */
+    volatile int    speed;          /* 电机速度 RMP/min */
     volatile uint16_t   current;        /* 电机电流 mA  */
     volatile uint16_t   pwm_duty;       /* 电机占空比 */
     volatile uint16_t   v_bus;          /* 主线电压 mv */

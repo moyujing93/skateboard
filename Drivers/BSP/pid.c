@@ -27,12 +27,15 @@
 #include "./BSP/bldc.h"
 
 uint8_t  pid_sta = 1;
+uint8_t  pid_break_sta = 1;
 
 PID_TypeDef  g_MA_speed_pid = { 0 };           /* 速度环PID参数结构体 */
 PID_TypeDef  g_MA_current_pid = { 0 };         /* 电流环PID参数结构体 */
 
 PID_TypeDef  g_MB_speed_pid = { 0 };           /* 速度环PID参数结构体 */
 PID_TypeDef  g_MB_current_pid = { 0 };         /* 电流环PID参数结构体 */
+
+PID_TypeDef  g_MX_break_pid = { 0 };              /* 刹车电阻PID参数结构体 */
 
 TIM_HandleTypeDef g_tim2_handle;
 
@@ -117,7 +120,17 @@ void pid_init(uint16_t hz )
     g_MB_current_pid.Integral = KI_C;      /* 积分常数 Integral Const */
     g_MB_current_pid.Derivative = KD_C;    /* 微分常数 Derivative Const */ 
     
+    /***************BREAK********************/
     
+    g_MX_break_pid.SetPoint = 0;       /* 设定目标值 */
+    g_MX_break_pid.ActualValue = 0.0;  /* 期望输出值 */
+    g_MX_break_pid.SumError = 0.0;     /* 积分值 */
+    g_MX_break_pid.Error = 0.0;        /* Error[1] */
+    g_MX_break_pid.LastError = 0.0;    /* Error[-1] */
+    g_MX_break_pid.PrevError = 0.0;    /* Error[-2] */
+    g_MX_break_pid.Proportion = KP_BK;    /* 比例常数 Proportional Const */
+    g_MX_break_pid.Integral = KI_BK;      /* 积分常数 Integral Const */
+    g_MX_break_pid.Derivative = KD_BK;    /* 微分常数 Derivative Const */ 
     //打开定时器
     pid_timer_init(hz);
 }
@@ -219,6 +232,29 @@ static void motor_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid_speed,PID_T
     }
 }
 
+
+
+/**
+ * @brief       中断服务函数，不调用公共处理函数。
+ * @param       
+ * @retval      
+ */
+static void break_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid)
+{
+    static float Bias, Step_c = 0, Last_bias;
+    
+    if(pid_bldc_motor->brake_flag)
+    {
+        pid_bldc_motor->brake_duty = increment_pid_ctrl(pid,pid_bldc_motor->current);
+    }else
+    {
+        pid_bldc_motor->brake_duty = 0;
+        pid->ActualValue = 0;
+        pid->LastError = 0;
+        pid->PrevError = 0;
+    }
+    
+}
 /**
  * @brief       中断服务函数，不调用公共处理函数。
  * @param       
@@ -237,7 +273,11 @@ void TIM2_IRQHandler(void)
             
             motor_pid_set(&g_bldc_motorA,&g_MA_speed_pid,&g_MA_current_pid);
             motor_pid_set(&g_bldc_motorB,&g_MB_speed_pid,&g_MB_current_pid);
-            
+            if(pid_break_sta)
+            {
+                break_pid_set(&g_bldc_motorA,&g_MX_break_pid);
+                break_pid_set(&g_bldc_motorB,&g_MX_break_pid);
+            }
         }
     }
 }

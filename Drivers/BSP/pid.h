@@ -43,6 +43,11 @@
 #define  KI_C      0.001f               /* I参数  0.002*/
 #define  KD_C      0.00f                /* D参数*/
 
+/* 刹车电阻PID参数相关宏 */
+#define  KP_BK      0.002f               /* P参数  0.005*/
+#define  KI_BK      0.001f               /* I参数  0.002*/
+#define  KD_BK      0.00f                /* D参数*/
+
 
 #else
 
@@ -67,11 +72,14 @@ typedef struct
 } PID_TypeDef;
 
 extern uint8_t  pid_sta;
+extern uint8_t  pid_break_sta;
 extern PID_TypeDef  g_MA_speed_pid;     /*速度环PID参数结构体*/
 extern PID_TypeDef  g_MA_current_pid;   /* 电流环PID参数结构体 */
 
 extern PID_TypeDef  g_MB_speed_pid;     /*速度环PID参数结构体*/
 extern PID_TypeDef  g_MB_current_pid;   /* 电流环PID参数结构体 */
+
+extern PID_TypeDef  g_MX_break_pid;   /* 电阻刹车PID结构体 */
 /******************************************************************************************/
 
 void pid_init(uint16_t hz );                 /* pid初始化 */

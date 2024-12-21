@@ -28,7 +28,6 @@
 
 
 
-
 void MA_uhvl(void);
 void MA_uhwl(void);
 void MA_vhwl(void);
@@ -47,6 +46,8 @@ void MB_whvl(void);
 void MB_stop(void);
 void MB_break(void);
 
+void MX_power(uint8_t onoff);
+void MX_break(void);
 
 
 

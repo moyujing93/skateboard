@@ -28,6 +28,7 @@
 
 uint16_t break_motorA = 0;
 uint16_t break_motorB = 0;
+int bk_off_time = 0;
 
 # define    FD6288T     1
 
@@ -250,34 +251,11 @@ void MA_break(void)
     /******* 上桥臂PWM部分 ********/
     g_MA_timx_handle.Instance->CCR1 = 0;   /* U相上桥臂 */
     g_MA_timx_handle.Instance->CCR2 = 0;                        /* V相上桥臂 */
-    if(g_bldc_motorA.speed < 300 && g_bldc_motorA.hall_erro == 0)
-    {
-        g_MA_timx_handle.Instance->CCR3 = g_bldc_motorA.brake_duty * 4;                        /* W相上桥臂 */
-        MA_UL_PORT->BSRR = (uint32_t)MA_UL_PIN;
-        MA_VL_PORT->BSRR = (uint32_t)MA_VL_PIN;
-        MA_WL_PORT->BSRR = (uint32_t)MA_WL_PIN << 16u;
-    }else
-    {
-        g_MA_timx_handle.Instance->CCR3 = 0;                        /* W相上桥臂 */
-        if(break_motorA < 14)
-        {
-            break_motorA++;
-        }else
-        {
-            break_motorA = 0;
-        }
-        if(break_motorA < g_bldc_motorA.brake_duty)
-        {
-            MA_UL_PORT->BSRR = (uint32_t)MA_UL_PIN;
-            MA_VL_PORT->BSRR = (uint32_t)MA_VL_PIN;
-            MA_WL_PORT->BSRR = (uint32_t)MA_WL_PIN;
-        }else
-        {
-            MA_UL_PORT->BSRR = (uint32_t)MA_UL_PIN << 16u;
-            MA_VL_PORT->BSRR = (uint32_t)MA_VL_PIN << 16u;
-            MA_WL_PORT->BSRR = (uint32_t)MA_WL_PIN << 16u;
-        }
-    }
+    g_MA_timx_handle.Instance->CCR3 = g_bldc_motorA.brake_duty / 10;                        /* W相上桥臂 */
+    
+    MA_UL_PORT->BSRR = (uint32_t)MA_UL_PIN;
+    MA_VL_PORT->BSRR = (uint32_t)MA_VL_PIN;
+    MA_WL_PORT->BSRR = (uint32_t)MA_WL_PIN << 16u;
     
 }
 
@@ -428,35 +406,60 @@ void MB_break(void)
     /******* 上桥臂PWM部分 ********/
     g_MB_timx_handle.Instance->CCR1 = 0;   /* U相上桥臂 */
     g_MB_timx_handle.Instance->CCR2 = 0;                        /* V相上桥臂 */
-    if(g_bldc_motorB.speed < 300 && g_bldc_motorB.hall_erro == 0)
+    g_MB_timx_handle.Instance->CCR3 = g_bldc_motorB.brake_duty / 10;                        /* W相上桥臂 */
+    MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN;
+    MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN;
+    MB_WL_PORT->BSRR = (uint32_t)MB_WL_PIN << 16u;
+    
+}
+
+void MX_power(uint8_t onoff)
+{
+    if(onoff)
     {
-        g_MB_timx_handle.Instance->CCR3 = g_bldc_motorB.brake_duty * 4;                        /* W相上桥臂 */
-        MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN;
-        MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN;
-        MB_WL_PORT->BSRR = (uint32_t)MB_WL_PIN << 16u;
+        //关闭刹车下桥臂
+        TIM1->CCR4 = 0;
+        
+        //延时
+        if(bk_off_time <= 0)
+        {
+            MX_POWER_PORT->BSRR = (uint32_t)MB_UL_PIN;
+            bk_off_time = 0;
+        }else
+        {
+            bk_off_time--;
+        }
+        
     }else
     {
-        g_MB_timx_handle.Instance->CCR3 = 0;                        /* W相上桥臂 */
-        if(break_motorB < 14)
-        {
-            break_motorB++;
-        }else
-        {
-            break_motorB = 0;
-        }
-        if(break_motorB < g_bldc_motorB.brake_duty)
-        {
-            MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN;
-            MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN;
-            MB_WL_PORT->BSRR = (uint32_t)MB_WL_PIN;
-        }else
-        {
-            MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN << 16u;
-            MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN << 16u;
-            MB_WL_PORT->BSRR = (uint32_t)MB_WL_PIN << 16u;
-        }
+        //断电
+        MX_POWER_PORT->BSRR = (uint32_t)MB_UL_PIN << 16u;
     }
+}
+/**
+  * @brief  电阻刹车
+  * @param  无
+  * @retval 无
+  */
+void MX_break(void)
+{
+    //关闭上下桥臂
+    MA_stop();
+    MB_stop();
     
+    MX_power(0);
+    
+    //延时
+    if(bk_off_time >= 100)
+    {
+        
+        TIM1->CCR4 = (g_bldc_motorA.brake_duty + g_bldc_motorB.brake_duty) / 2;                        /* BK刹车引脚 */
+        bk_off_time = 100;
+        
+    }else
+    {
+        bk_off_time++;
+    }
 }
 
 
