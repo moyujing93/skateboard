@@ -29,6 +29,10 @@
 /******************************************************************************************/
 /* PID相关参数 */
 
+
+#define  UES_PID           1
+#define  BK_UES_PID        0
+
 #define  INCR_LOCT_SELECT  1         /* 0：位置式 ，1：增量式 */
 
 #if INCR_LOCT_SELECT
@@ -71,8 +75,6 @@ typedef struct
     __IO float  PrevError;           /* Error[-2] */
 } PID_TypeDef;
 
-extern uint8_t  pid_sta;
-extern uint8_t  pid_break_sta;
 extern PID_TypeDef  g_MA_speed_pid;     /*速度环PID参数结构体*/
 extern PID_TypeDef  g_MA_current_pid;   /* 电流环PID参数结构体 */
 

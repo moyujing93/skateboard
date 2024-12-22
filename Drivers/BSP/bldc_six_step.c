@@ -423,7 +423,7 @@ void MX_power(uint8_t onoff)
         //—” ±
         if(bk_off_time <= 0)
         {
-            MX_POWER_PORT->BSRR = (uint32_t)MB_UL_PIN;
+            MX_POWER_PORT->BSRR = (uint32_t)MX_POWER_PIN;
             bk_off_time = 0;
         }else
         {
@@ -433,7 +433,7 @@ void MX_power(uint8_t onoff)
     }else
     {
         //∂œµÁ
-        MX_POWER_PORT->BSRR = (uint32_t)MB_UL_PIN << 16u;
+        MX_POWER_PORT->BSRR = (uint32_t)MX_POWER_PIN << 16u;
     }
 }
 /**

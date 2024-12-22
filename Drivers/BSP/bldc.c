@@ -317,8 +317,8 @@ void bldc_init(uint16_t arr, uint16_t psc)
     g_atimx_oc_chy_handle.OCPolarity = TIM_OCPOLARITY_LOW;     /* 极性 */
     g_atimx_oc_chy_handle.OCNPolarity = TIM_OCPOLARITY_LOW;   /* 互补通道极性 */
     g_atimx_oc_chy_handle.OCFastMode = TIM_OCFAST_DISABLE;
-    g_atimx_oc_chy_handle.OCIdleState = TIM_OCIDLESTATE_RESET;
-    g_atimx_oc_chy_handle.OCNIdleState = TIM_OCIDLESTATE_RESET;
+    g_atimx_oc_chy_handle.OCIdleState = TIM_OCIDLESTATE_SET;
+    g_atimx_oc_chy_handle.OCNIdleState = TIM_OCIDLESTATE_SET;
     HAL_TIM_PWM_ConfigChannel(&g_MB_timx_handle,&g_atimx_oc_chy_handle,TIM_CHANNEL_4);
     
     
@@ -435,19 +435,18 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 //void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
     //刹车
-    if(g_bldc_motorA.brake_flag == 1 && g_bldc_motorB.brake_flag == 1)
+    if(g_bldc_motorA.brake_flag == 1 || g_bldc_motorB.brake_flag == 1)
     {
-        if(g_bldc_motorA.speed < 300 && g_bldc_motorA.hall_erro == 0
-         &&g_bldc_motorB.speed < 300 && g_bldc_motorB.hall_erro == 0)
-        {
-            MX_power(1);
-            MA_break();
-            MB_break();
-        }else
-        {
             MX_power(0);
             MX_break();
-        }
+//        if(g_bldc_motorA.speed < 300 && g_bldc_motorA.hall_erro == 0 && g_bldc_motorB.speed < 300 && g_bldc_motorB.hall_erro == 0)
+//        {
+//            MX_power(1);
+//            MA_break();
+//            MB_break();
+//        }else
+//        {
+//        }
         
         
     }else
@@ -483,12 +482,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
                 if(g_bldc_motorA.step_last == 0x03)
                 {
                     //正转
-                    g_bldc_motorA.hall_speed_num++;
+                    g_bldc_motorA.hall_speed_num--;
                     
                 }else if(g_bldc_motorA.step_last == 0x05)
                 {
                     //反转
-                    g_bldc_motorA.hall_speed_num--;
+                    g_bldc_motorA.hall_speed_num++;
                     
                 }
                 g_bldc_motorA.step_last = g_bldc_motorA.step_sta;
@@ -539,12 +538,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
                 if(g_bldc_motorB.step_last == 0x03)
                 {
                     //正转
-                    g_bldc_motorB.hall_speed_num++;
+                    g_bldc_motorB.hall_speed_num--;
                     
                 }else if(g_bldc_motorB.step_last == 0x05)
                 {
                     //反转
-                    g_bldc_motorB.hall_speed_num--;
+                    g_bldc_motorB.hall_speed_num++;
                     
                 }
                 g_bldc_motorB.step_last = g_bldc_motorB.step_sta;

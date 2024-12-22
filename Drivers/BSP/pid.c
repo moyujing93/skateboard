@@ -26,8 +26,6 @@
 #include "./BSP/adc.h"
 #include "./BSP/bldc.h"
 
-uint8_t  pid_sta = 1;
-uint8_t  pid_break_sta = 1;
 
 PID_TypeDef  g_MA_speed_pid = { 0 };           /* 速度环PID参数结构体 */
 PID_TypeDef  g_MA_current_pid = { 0 };         /* 电流环PID参数结构体 */
@@ -241,7 +239,6 @@ static void motor_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid_speed,PID_T
  */
 static void break_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid)
 {
-    static float Bias, Step_c = 0, Last_bias;
     
     if(pid_bldc_motor->brake_flag)
     {
@@ -268,16 +265,16 @@ void TIM2_IRQHandler(void)
         __HAL_TIM_CLEAR_IT(&g_tim2_handle, TIM_IT_UPDATE);
         
         
-        if(pid_sta)
+        if(UES_PID == 1)
         {
             
             motor_pid_set(&g_bldc_motorA,&g_MA_speed_pid,&g_MA_current_pid);
             motor_pid_set(&g_bldc_motorB,&g_MB_speed_pid,&g_MB_current_pid);
-            if(pid_break_sta)
-            {
-                break_pid_set(&g_bldc_motorA,&g_MX_break_pid);
-                break_pid_set(&g_bldc_motorB,&g_MX_break_pid);
-            }
+        }
+        if(BK_UES_PID == 1)
+        {
+            break_pid_set(&g_bldc_motorA,&g_MX_break_pid);
+            break_pid_set(&g_bldc_motorB,&g_MX_break_pid);
         }
     }
 }
