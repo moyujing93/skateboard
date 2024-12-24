@@ -32,6 +32,10 @@
 
 /******************************************************************************************/
 
+#define  control_diff   35   //油门零点位置飘移
+
+
+
 //占空比刹车
 uint16_t  Break_num[8] =
 {
@@ -113,17 +117,46 @@ uint8_t rs485_receive_data(uint8_t *buf, uint16_t buf_size)
     return sta;
 }
 
+
+
+
+/**
+ * @brief       电阻刹车API
+ * @param       
+ * @retval      
+ */
+static void motor_break(int motor_control)
+{
+    g_bldc_motorA.run_flag = STOP;
+    g_bldc_motorB.run_flag = STOP;
+
+    g_bldc_motorA.brake_flag = 1;
+    g_bldc_motorB.brake_flag = 1;
+
+    #if(BK_UES_PID == 1)
+
+    g_MA_break_pid.SetPoint = Break_pidcc[((abs(motor_control) - control_diff - 1) * 8) / (500 - control_diff)];
+    g_MB_break_pid.SetPoint = g_MA_break_pid.SetPoint;
+
+    #else
+
+    g_bldc_motorA.brake_duty = Break_num[((abs(motor_control) - control_diff - 1) * 8) / (500 - control_diff)];
+    g_bldc_motorB.brake_duty = g_bldc_motorA.brake_duty;
+
+    #endif
+}
+
+
 /**
  * @brief       处理主机的请求
  * @param       0=转速控制  1=电流控制  2=占空比控制
  * @retval      
  */
-#define  control_diff   35
 void ESP32_fetinst(uint8_t mode)
 {
     struct_read esp_control = {0};
     static int motor_control = 0;
-    
+    float  cun_temp;
     if(g_esp32_struct.sta == 1)    /* 总线有消息 */
     {
         
@@ -145,50 +178,36 @@ void ESP32_fetinst(uint8_t mode)
             //设置参数
             if(motor_control > control_diff)  // 加速
             {
-                g_bldc_motorA.brake_flag = 0;
-                g_bldc_motorB.brake_flag = 0;
-                
                 g_bldc_motorA.run_flag = RUN;
                 g_bldc_motorB.run_flag = RUN;
                 
-                g_MA_current_pid.SetPoint  = (abs(motor_control) * SET_CURRENT) / 500;
-                g_MB_current_pid.SetPoint  = g_MA_current_pid.SetPoint;
+                g_bldc_motorA.brake_flag = 0;
+                g_bldc_motorB.brake_flag = 0;
+                
+                //注意滑板电机是左右方向相反的
+                cun_temp = (abs(motor_control) * SET_CURRENT) / 500;
+                if((g_bldc_motorA.dir == CW && g_bldc_motorA.speed < -50) || (g_bldc_motorA.dir == CCW && g_bldc_motorA.speed > 50) ||  \
+                    (g_bldc_motorB.dir == CW && g_bldc_motorB.speed < -50) || (g_bldc_motorB.dir == CCW && g_bldc_motorB.speed > 50))
+                {
+                    //电机在受外力反转，限制电流
+                    cun_temp = cun_temp > 3000 ?   3000 : cun_temp;
+                }
+                
+                g_MA_current_pid.SetPoint  = cun_temp;
+                g_MB_current_pid.SetPoint  = cun_temp;
                 
             }else if(motor_control < -control_diff)  // 刹车
             {
-                g_bldc_motorA.run_flag = STOP;
-                g_bldc_motorB.run_flag = STOP;
-                g_MA_speed_pid.SetPoint  = 0;
-                g_MB_speed_pid.SetPoint  = 0;
-                g_MA_current_pid.SetPoint  = 0;
-                g_MB_current_pid.SetPoint  = 0;
-                g_bldc_motorA.brake_flag = 1;
-                g_bldc_motorB.brake_flag = 1;
-                g_bldc_motorA.pwm_duty = 0;
-                g_bldc_motorB.pwm_duty = 0;
                 
-                if(BK_UES_PID == 1)
-                {
-                    g_MX_break_pid.SetPoint = Break_pidcc[((abs(motor_control) - control_diff - 1) * 8) / (500 - control_diff)];
-                }else
-                {
-                    g_bldc_motorA.brake_duty = Break_num[((abs(motor_control) - control_diff - 1) * 8) / (500 - control_diff)];
-                    g_bldc_motorB.brake_duty = g_bldc_motorA.brake_duty;
-                }
-                
-                
+                motor_break(motor_control);
                 
             }else
             {
-                g_bldc_motorA.brake_flag = 0;
-                g_bldc_motorB.brake_flag = 0;
                 g_bldc_motorA.run_flag = STOP;
                 g_bldc_motorB.run_flag = STOP;
-                g_MA_speed_pid.SetPoint  = 0;
-                g_MB_speed_pid.SetPoint  = 0;
-                g_MA_current_pid.SetPoint  = 0;
-                g_MB_current_pid.SetPoint  = 0;
                 
+                g_bldc_motorA.brake_flag = 0;
+                g_bldc_motorB.brake_flag = 0;
                 
                 //正转，反转，停止，只有在转速为0时才能切换
                 if(esp_control.dir)
@@ -229,17 +248,23 @@ void ESP32_fetinst(uint8_t mode)
     {
         if(int_abs(time_num - esp32_lose_time) > 1000)
         {
-            g_bldc_motorA.brake_flag = 1;
-            g_bldc_motorA.brake_duty = Break_num[2];
-            g_bldc_motorA.run_flag = STOP;
-            g_MA_speed_pid.SetPoint  = 0;
-            g_MA_current_pid.SetPoint  = 0;
             
-            g_bldc_motorB.brake_flag = 1;
-            g_bldc_motorB.brake_duty = Break_num[2];
+            g_bldc_motorA.run_flag = STOP;
             g_bldc_motorB.run_flag = STOP;
-            g_MB_speed_pid.SetPoint  = 0;
-            g_MB_current_pid.SetPoint  = 0;
+            
+            g_bldc_motorA.brake_flag = 1;
+            g_bldc_motorB.brake_flag = 1;
+            
+            #if(BK_UES_PID == 1)
+            
+            g_MA_break_pid.SetPoint = Break_pidcc[2];
+            g_MA_break_pid.SetPoint = Break_pidcc[2];
+            
+            #else
+            g_bldc_motorA.brake_duty = Break_num[2];
+            g_bldc_motorB.brake_duty = g_bldc_motorA.brake_duty;
+            #endif
+            
         }
     }
 }

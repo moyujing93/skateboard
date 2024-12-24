@@ -133,19 +133,26 @@ typedef struct
     volatile uint8_t    locked_rotor;   /* 堵转标记 */
     volatile uint8_t    max_c;   /* 过流保护 */
     volatile uint8_t    max_t;   /* 过热保护 */
+    
     volatile uint8_t    step_sta;       /* 本次霍尔状态 */
-    volatile int    hall_speed_num;/* 计算转速的计数值 */
-    volatile uint8_t     hall_erro;     /* 本次霍尔错误 */
     volatile uint8_t    step_last;      /* 上次霍尔状态 */
-    volatile uint8_t    dir;            /* 电机旋转方向 */
+    volatile uint8_t    hall_erro;     /* 本次霍尔错误 */
+    
+    
+    volatile uint8_t    dir;            /* 电机目标旋转方向 */
+    volatile int        hall_speed_num;/* 计算转速的计数值 */
+    volatile int        speed;          /* 电机速度 RMP/min */
 //    volatile int32_t    pos;            /* 电机位置 */
-    volatile int    speed;          /* 电机速度 RMP/min */
     volatile uint16_t   current;        /* 电机电流 mA  */
-    volatile uint16_t   pwm_duty;       /* 电机占空比 */
+    
+    
     volatile uint16_t   v_bus;          /* 主线电压 mv */
     volatile uint16_t   v_t;         /* 驱动板温度 放大100倍 125 = 1.25摄氏度 */
     volatile uint16_t   brake_flag;     /* 刹车标志 */
+    volatile uint16_t   pwm_duty;       /* 电机占空比 */
     volatile uint16_t   brake_duty;     /* 刹车时的占空比 */
+    
+    
 //    volatile uint32_t   hall_keep_t;    /* 霍尔保持时间 */
 //    volatile uint32_t   hall_pul_num;   /* 霍尔传感器脉冲数 */
 //    volatile uint32_t   lock_time;      /* 电机堵转时间 */

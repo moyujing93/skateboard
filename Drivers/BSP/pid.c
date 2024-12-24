@@ -33,7 +33,8 @@ PID_TypeDef  g_MA_current_pid = { 0 };         /* 电流环PID参数结构体 */
 PID_TypeDef  g_MB_speed_pid = { 0 };           /* 速度环PID参数结构体 */
 PID_TypeDef  g_MB_current_pid = { 0 };         /* 电流环PID参数结构体 */
 
-PID_TypeDef  g_MX_break_pid = { 0 };              /* 刹车电阻PID参数结构体 */
+PID_TypeDef  g_MA_break_pid = { 0 };              /* 刹车电阻PID参数结构体 */
+PID_TypeDef  g_MB_break_pid = { 0 };              /* 刹车电阻PID参数结构体 */
 
 TIM_HandleTypeDef g_tim2_handle;
 
@@ -120,15 +121,25 @@ void pid_init(uint16_t hz )
     
     /***************BREAK********************/
     
-    g_MX_break_pid.SetPoint = 0;       /* 设定目标值 */
-    g_MX_break_pid.ActualValue = 0.0;  /* 期望输出值 */
-    g_MX_break_pid.SumError = 0.0;     /* 积分值 */
-    g_MX_break_pid.Error = 0.0;        /* Error[1] */
-    g_MX_break_pid.LastError = 0.0;    /* Error[-1] */
-    g_MX_break_pid.PrevError = 0.0;    /* Error[-2] */
-    g_MX_break_pid.Proportion = KP_BK;    /* 比例常数 Proportional Const */
-    g_MX_break_pid.Integral = KI_BK;      /* 积分常数 Integral Const */
-    g_MX_break_pid.Derivative = KD_BK;    /* 微分常数 Derivative Const */ 
+    g_MA_break_pid.SetPoint = 0;       /* 设定目标值 */
+    g_MA_break_pid.ActualValue = 0.0;  /* 期望输出值 */
+    g_MA_break_pid.SumError = 0.0;     /* 积分值 */
+    g_MA_break_pid.Error = 0.0;        /* Error[1] */
+    g_MA_break_pid.LastError = 0.0;    /* Error[-1] */
+    g_MA_break_pid.PrevError = 0.0;    /* Error[-2] */
+    g_MA_break_pid.Proportion = KP_BK;    /* 比例常数 Proportional Const */
+    g_MA_break_pid.Integral = KI_BK;      /* 积分常数 Integral Const */
+    g_MA_break_pid.Derivative = KD_BK;    /* 微分常数 Derivative Const */ 
+    
+    g_MB_break_pid.SetPoint = 0;       /* 设定目标值 */
+    g_MB_break_pid.ActualValue = 0.0;  /* 期望输出值 */
+    g_MB_break_pid.SumError = 0.0;     /* 积分值 */
+    g_MB_break_pid.Error = 0.0;        /* Error[1] */
+    g_MB_break_pid.LastError = 0.0;    /* Error[-1] */
+    g_MB_break_pid.PrevError = 0.0;    /* Error[-2] */
+    g_MB_break_pid.Proportion = KP_BK;    /* 比例常数 Proportional Const */
+    g_MB_break_pid.Integral = KI_BK;      /* 积分常数 Integral Const */
+    g_MB_break_pid.Derivative = KD_BK;    /* 微分常数 Derivative Const */ 
     //打开定时器
     pid_timer_init(hz);
 }
@@ -141,8 +152,10 @@ void pid_init(uint16_t hz )
  */
 int32_t increment_pid_ctrl(PID_TypeDef *PID,float Feedback_value)
 {
-    PID->Error = (float)(PID->SetPoint - Feedback_value);                   /* 计算偏差 */
+    //只计算速度，不计算方向  == 绝对值计算
+    if(Feedback_value < 0) Feedback_value = -Feedback_value;
     
+    PID->Error = (float)(PID->SetPoint - Feedback_value);                   /* 计算偏差 */
 #if  INCR_LOCT_SELECT                                                       /* 增量式PID */
     
     PID->ActualValue += (PID->Proportion * (PID->Error - PID->LastError))                          /* 比例环节 */
@@ -220,9 +233,12 @@ static void motor_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid_speed,PID_T
         }
     }else
     {
+        
+        pid_speed->SetPoint = 0;
         pid_speed->ActualValue = 0;
         pid_speed->LastError = 0;
         pid_speed->PrevError = 0;
+        pid_current->SetPoint = 0;
         pid_current->ActualValue = 0;
         pid_current->LastError = 0;
         pid_current->PrevError = 0;
@@ -245,10 +261,11 @@ static void break_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid)
         pid_bldc_motor->brake_duty = increment_pid_ctrl(pid,pid_bldc_motor->current);
     }else
     {
-        pid_bldc_motor->brake_duty = 0;
+        pid->SetPoint = 0;
         pid->ActualValue = 0;
         pid->LastError = 0;
         pid->PrevError = 0;
+        pid_bldc_motor->brake_duty = 0;
     }
     
 }
@@ -273,8 +290,8 @@ void TIM2_IRQHandler(void)
         }
         if(BK_UES_PID == 1)
         {
-            break_pid_set(&g_bldc_motorA,&g_MX_break_pid);
-            break_pid_set(&g_bldc_motorB,&g_MX_break_pid);
+            break_pid_set(&g_bldc_motorA,&g_MA_break_pid);
+            break_pid_set(&g_bldc_motorB,&g_MB_break_pid);
         }
     }
 }

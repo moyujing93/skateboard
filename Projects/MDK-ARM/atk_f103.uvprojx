@@ -544,11 +544,6 @@
               <FilePath>..\..\Drivers\BSP\pid.c</FilePath>
             </File>
             <File>
-              <FileName>pulse.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\..\Drivers\BSP\pulse.c</FilePath>
-            </File>
-            <File>
               <FileName>rs485.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\Drivers\BSP\rs485.c</FilePath>

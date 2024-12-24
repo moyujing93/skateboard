@@ -251,7 +251,7 @@ void MA_break(void)
     /******* 上桥臂PWM部分 ********/
     g_MA_timx_handle.Instance->CCR1 = 0;   /* U相上桥臂 */
     g_MA_timx_handle.Instance->CCR2 = 0;                        /* V相上桥臂 */
-    g_MA_timx_handle.Instance->CCR3 = g_bldc_motorA.brake_duty / 10;                        /* W相上桥臂 */
+    g_MA_timx_handle.Instance->CCR3 = g_bldc_motorA.brake_duty / 5;                        /* W相上桥臂 */
     
     MA_UL_PORT->BSRR = (uint32_t)MA_UL_PIN;
     MA_VL_PORT->BSRR = (uint32_t)MA_VL_PIN;
@@ -406,7 +406,7 @@ void MB_break(void)
     /******* 上桥臂PWM部分 ********/
     g_MB_timx_handle.Instance->CCR1 = 0;   /* U相上桥臂 */
     g_MB_timx_handle.Instance->CCR2 = 0;                        /* V相上桥臂 */
-    g_MB_timx_handle.Instance->CCR3 = g_bldc_motorB.brake_duty / 10;                        /* W相上桥臂 */
+    g_MB_timx_handle.Instance->CCR3 = g_bldc_motorB.brake_duty / 5;                        /* W相上桥臂 */
     MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN;
     MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN;
     MB_WL_PORT->BSRR = (uint32_t)MB_WL_PIN << 16u;
@@ -449,12 +449,12 @@ void MX_break(void)
     
     MX_power(0);
     
-    //延时
-    if(bk_off_time >= 100)
+    //延时1/12K = 0.083MS  240   = 20MS
+    if(bk_off_time >= 240)
     {
         
         TIM1->CCR4 = (g_bldc_motorA.brake_duty + g_bldc_motorB.brake_duty) / 2;                        /* BK刹车引脚 */
-        bk_off_time = 100;
+        bk_off_time = 240;
         
     }else
     {

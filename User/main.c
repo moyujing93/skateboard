@@ -17,7 +17,6 @@
 #include "./BSP/pid.h"
 #include "./BSP/adc.h"
 #include "./BSP/rs485.h"
-#include "./BSP/pulse.h"
 
 
 
@@ -70,7 +69,7 @@ int main(void)
     delay_ms(500);
     
     adc1_dma_init();
-    pid_init(100);
+    pid_init(50);
     
     
     while(1)

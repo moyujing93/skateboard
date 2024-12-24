@@ -31,25 +31,25 @@
 
 
 #define  UES_PID           1
-#define  BK_UES_PID        0
+#define  BK_UES_PID        1
 
 #define  INCR_LOCT_SELECT  1         /* 0：位置式 ，1：增量式 */
 
 #if INCR_LOCT_SELECT
 
 /* 转速PID参数相关宏 */
-#define  KP_S      0.005f               /* P参数 0.05*/
+#define  KP_S      0.015f               /* P参数 0.05*/
 #define  KI_S      0.005f               /* I参数 0.02*/
 #define  KD_S      0.00f                /* D参数*/
 
 /* 电流PID参数相关宏 */
-#define  KP_C      0.002f               /* P参数  0.005*/
-#define  KI_C      0.001f               /* I参数  0.002*/
+#define  KP_C      0.02f               /* P参数  0.005*/
+#define  KI_C      0.005f               /* I参数  0.002*/
 #define  KD_C      0.00f                /* D参数*/
 
 /* 刹车电阻PID参数相关宏 */
-#define  KP_BK      0.002f               /* P参数  0.005*/
-#define  KI_BK      0.001f               /* I参数  0.002*/
+#define  KP_BK      0.08f               /* P参数  0.005*/
+#define  KI_BK      0.03f               /* I参数  0.002*/
 #define  KD_BK      0.00f                /* D参数*/
 
 
@@ -81,7 +81,8 @@ extern PID_TypeDef  g_MA_current_pid;   /* 电流环PID参数结构体 */
 extern PID_TypeDef  g_MB_speed_pid;     /*速度环PID参数结构体*/
 extern PID_TypeDef  g_MB_current_pid;   /* 电流环PID参数结构体 */
 
-extern PID_TypeDef  g_MX_break_pid;   /* 电阻刹车PID结构体 */
+extern PID_TypeDef  g_MA_break_pid;   /* 电阻刹车PID结构体 */
+extern PID_TypeDef  g_MB_break_pid;   /* 电阻刹车PID结构体 */
 /******************************************************************************************/
 
 void pid_init(uint16_t hz );                 /* pid初始化 */
