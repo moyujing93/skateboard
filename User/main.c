@@ -22,9 +22,6 @@
 
 #define USE_RC     0
 
-uint16_t time_max_c = 0;
-uint16_t time_locked_rotor = 0;
-char time_dir = 1;
 
 void over_load(_bldc_obj *motor_temp);
 
@@ -44,39 +41,45 @@ int main(void)
     #else
     rs485_init(115200);
     #endif
-    delay_ms(200);
+    delay_ms(20);
     
     
     g_bldc_motorA.pwm_duty = 0;
     g_bldc_motorA.run_flag = STOP;
-    g_bldc_motorA.dir = CCW;
+    g_bldc_motorA.setdir = CCW;
     g_bldc_motorA.max_c = RESET;
     g_bldc_motorA.max_t = RESET;
-    g_bldc_motorA.hall_erro = RESET;
+    g_bldc_motorA.hall_erro_count = 0;
+    g_bldc_motorA.low_p = RESET;
     g_bldc_motorA.v_bus = 20000;
     
     
     g_bldc_motorB.pwm_duty = 0;
     g_bldc_motorB.run_flag = STOP;
-    g_bldc_motorB.dir = CW;
+    g_bldc_motorB.setdir = CW;
     g_bldc_motorB.max_c = RESET;
     g_bldc_motorB.max_t = RESET;
-    g_bldc_motorB.hall_erro = RESET;
+    g_bldc_motorB.hall_erro_count = 0;
+    g_bldc_motorB.low_p = RESET;
     g_bldc_motorB.v_bus = 20000;
     
     
-    bldc_init(1000-1,6-1);
-    delay_ms(500);
+    bldc_init(1000-1,4-1);
+    //自动设置HALL
+//    MA_hall_auto_set();
+    delay_ms(20);
     
     adc1_dma_init();
+    
     pid_init(50);
     
     
     while(1)
     {
         
-        if( time_num % 10 == 0)
+        if( g_bldc_time.g_time_task1 >= 15 )
         {
+            g_bldc_time.g_time_task1 = 0;
             #if USE_RC
             /* RC通讯 */
             pulse_fetinst(0) ;
@@ -86,45 +89,46 @@ int main(void)
             #endif
         }
         
-        if( time_num % 5 == 0)
+        if( g_bldc_time.g_time_task2 >= 10 )
         {
-            /* 计算电流，温度 */
-            adc_dma_conver(20);
-        }
-        
-        if( time_num % 20 == 0)
-        {
+            g_bldc_time.g_time_task2 = 0;
             over_load(&g_bldc_motorA);
             over_load(&g_bldc_motorB);
         }
-        #define   rpm_time    20
-        if( time_num % rpm_time == 0)
+        
+        if( g_bldc_time.g_time_task3 >= 20 )
         {
+            uint16_t speed_temp = 0;
+            g_bldc_time.g_time_task3 = 0;
             /* 计算转速 */
             
-            /*RPM/MIN = （get_speed_num/极对数/2） * (60000/ time) 
-            列子: 计算周期时间=100ms ,计数值=50 极对数=7;
-            RPM/min = (50/14)*（60000ms/50ms） = 4285rpm/min
+            /*RPM/MIN = （get_speed_num/极对数/1） * (60000/ time) 
+            列子: PWM周期时间 = 18K = 0.055555ms ,计数值=10 极对数=7;
+            RPM/min = (60000 / (10 * 0.0555)) / 7 = 15444rpm/min
             */
-            g_bldc_motorA.speed = 0.3f * ((g_bldc_motorA.hall_speed_num * (60000/rpm_time)) / 14) + 0.7f * g_bldc_motorA.speed;
-            g_bldc_motorA.hall_speed_num = 0;
             
-            g_bldc_motorB.speed = 0.3f * ((g_bldc_motorB.hall_speed_num * (60000/rpm_time)) / 14) + 0.7f * g_bldc_motorB.speed;
-            g_bldc_motorB.hall_speed_num = 0;
+            //保证被除数不为0
+            if(g_bldc_motorA.step_all_time > 15)
+            {
+                speed_temp = 60000/(g_bldc_motorA.step_all_time * 0.0555f) / 7;
+                g_bldc_motorA.speed = 0.3f * speed_temp + 0.7f * g_bldc_motorA.speed;
+            }
+            if(g_bldc_motorB.step_all_time > 15)
+            {
+                speed_temp = 60000/(g_bldc_motorB.step_all_time * 0.0555f) / 7;
+                g_bldc_motorB.speed = 0.3f * speed_temp + 0.7f * g_bldc_motorB.speed;
+            }
             
         }
         
         
-        
-        if(time_num == 0xffffffff)
+        if( g_bldc_time.g_time_task4 >= 1 )
         {
-            time_dir = -1;
-        }else if(time_num == 0)
-        {
-            time_dir = 1;
+            /* 计算电流，温度*/
+            adc_dma_conver();
         }
-        time_num += time_dir;
-        delay_ms(1);
+        
+        
     }
 }
 
@@ -136,11 +140,21 @@ void over_load(_bldc_obj *motor_temp)
     //低电压保护6s
     if(motor_temp->v_bus  <  18000)
     {
-        motor_temp->hall_erro = SET;
+        motor_temp->low_p_count = 200;
+        motor_temp->low_p = SET;
+    }else if(motor_temp->v_bus  >  19000)
+    {
+        if(motor_temp->low_p_count == 0)
+        {
+            motor_temp->low_p = RESET;
+        }else
+        {
+            motor_temp->low_p_count--;
+        }
     }
     
     //温度保护与释放
-    if(motor_temp->v_t  >  HOT_OTP)
+    if(motor_temp->v_t  >  HOT_OTP) 
     {
         motor_temp->max_t = SET;
     }else if(motor_temp->v_t < (HOT_OTP-2000))
@@ -152,21 +166,24 @@ void over_load(_bldc_obj *motor_temp)
     //过流保护与释放
     if(motor_temp->current > MAX_CURRENT)
     {
-        motor_temp->max_c = SET;
-        time_locked_rotor++;
-        if(time_locked_rotor > 10)
+        motor_temp->max_c_count++;
+        if(motor_temp->max_c_count > 100)
         {
+            motor_temp->max_c_count = 200;
             motor_temp->locked_rotor = SET;
+        }else if(motor_temp->max_c_count > 10)
+        {
+            motor_temp->max_c = SET;
         }
     }else
     {
-        time_max_c ++;
-        if(time_max_c > 25)
+        if(motor_temp->max_c_count == 0)
         {
-            time_max_c = 0;
-            time_locked_rotor = 0;
             motor_temp->max_c = RESET;
             motor_temp->locked_rotor = RESET;
+        }else
+        {
+            motor_temp->max_c_count--;
         }
     }
 }

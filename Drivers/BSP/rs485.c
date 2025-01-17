@@ -32,34 +32,58 @@
 
 /******************************************************************************************/
 
-#define  control_diff   35   //油门零点位置飘移
+#define  control_diff   50   //油门零点位置飘移
 
 
 
 //占空比刹车
-uint16_t  Break_num[8] =
+uint16_t  Break_num[20] =
 {
+    0,
+    0,
+    50,
+    100,
+    150,
     200,
     250,
     300,
     350,
+    400,
     450,
+    500,
     550,
+    600,
     650,
-    750
+    700,
+    750,
+    800,
+    850,
+    900
 };
 
 //pid电流刹车
-uint16_t  Break_pidcc[8] =
+uint16_t  Break_pidcc[20] =
 {
     500,
-    1000,
-    1500,
-    2000,
-    3000,
-    4000,
-    5000,
-    6000
+    1225,
+    1950,
+    2675,
+    3400,
+    4125,
+    4850,
+    5575,
+    6300,
+    7025,
+    7750,
+    8475,
+    9200,
+    9925,
+    10650,
+    11370,
+    12100,
+    12800,
+    13500,
+    14250
 };
 
 volatile rs485_typedef rs485_struct;
@@ -121,7 +145,7 @@ uint8_t rs485_receive_data(uint8_t *buf, uint16_t buf_size)
 
 
 /**
- * @brief       电阻刹车API
+ * @brief       刹车API
  * @param       
  * @retval      
  */
@@ -133,17 +157,23 @@ static void motor_break(int motor_control)
     g_bldc_motorA.brake_flag = 1;
     g_bldc_motorB.brake_flag = 1;
 
-    #if(BK_UES_PID == 1)
-
-    g_MA_break_pid.SetPoint = Break_pidcc[((abs(motor_control) - control_diff - 1) * 8) / (500 - control_diff)];
-    g_MB_break_pid.SetPoint = g_MA_break_pid.SetPoint;
-
-    #else
-
-    g_bldc_motorA.brake_duty = Break_num[((abs(motor_control) - control_diff - 1) * 8) / (500 - control_diff)];
-    g_bldc_motorB.brake_duty = g_bldc_motorA.brake_duty;
-
-    #endif
+    if(BK_UES_PID == 1)
+    {
+        g_MA_break_pid.SetPoint = Break_pidcc[((abs(motor_control) - control_diff - 1) * 20) / (500 - control_diff)];
+        g_MB_break_pid.SetPoint = g_MA_break_pid.SetPoint;
+    //    MX_brake_duty   =  Break_num[((abs(motor_control) - control_diff - 1) * 8) / (500 - control_diff)];
+    }else
+    {
+        motor_control = int_abs(motor_control);
+        motor_control = int_limit(motor_control,0,500);
+        motor_control = 250 + (abs(motor_control) * 1.2f);
+        motor_control = int_limit(motor_control,0,850);
+        
+        g_bldc_motorA.brake_duty = motor_control;
+        g_bldc_motorB.brake_duty = motor_control;
+        
+    //    MX_brake_duty   =  g_bldc_motorA.brake_duty;
+    }
 }
 
 
@@ -154,13 +184,14 @@ static void motor_break(int motor_control)
  */
 void ESP32_fetinst(uint8_t mode)
 {
+    static uint16_t speed_L,speed_R;
     struct_read esp_control = {0};
     static int motor_control = 0;
     float  cun_temp;
     if(g_esp32_struct.sta == 1)    /* 总线有消息 */
     {
         
-        esp32_lose_time = time_num;
+        esp32_lose_time = g_bldc_time.g_time_sys;
         //接收消息
         esp_control = g_esp32_struct;
         g_esp32_struct.sta = 0;
@@ -184,19 +215,32 @@ void ESP32_fetinst(uint8_t mode)
                 g_bldc_motorA.brake_flag = 0;
                 g_bldc_motorB.brake_flag = 0;
                 
+                
                 //注意滑板电机是左右方向相反的
+                
                 cun_temp = (abs(motor_control) * SET_CURRENT) / 500;
-                if((g_bldc_motorA.dir == CW && g_bldc_motorA.speed < -50) || (g_bldc_motorA.dir == CCW && g_bldc_motorA.speed > 50) ||  \
-                    (g_bldc_motorB.dir == CW && g_bldc_motorB.speed < -50) || (g_bldc_motorB.dir == CCW && g_bldc_motorB.speed > 50))
+                
+                if(g_bldc_motorA.setdir  != g_bldc_motorA.step_dir)
                 {
                     //电机在受外力反转，限制电流
-                    cun_temp = cun_temp > 3000 ?   3000 : cun_temp;
+                    g_MA_current_pid.SetPoint = int_limit(cun_temp,0,MAX_CURRENT / 5);
+                }else
+                {
+                    g_MA_current_pid.SetPoint  = cun_temp;
                 }
                 
-                g_MA_current_pid.SetPoint  = cun_temp;
-                g_MB_current_pid.SetPoint  = cun_temp;
                 
-            }else if(motor_control < -control_diff)  // 刹车
+                if( g_bldc_motorB.setdir != g_bldc_motorB.step_dir)
+                {
+                    //电机在受外力反转，限制电流
+                    g_MB_current_pid.SetPoint = int_limit(cun_temp,0,MAX_CURRENT / 5);
+                    
+                }else
+                {
+                    g_MB_current_pid.SetPoint  = cun_temp;
+                }
+                
+            }else if(motor_control < -(control_diff*3.0f))  // 刹车
             {
                 
                 motor_break(motor_control);
@@ -212,13 +256,13 @@ void ESP32_fetinst(uint8_t mode)
                 //正转，反转，停止，只有在转速为0时才能切换
                 if(esp_control.dir)
                 {
-                    g_bldc_motorA.dir = CCW;
-                    g_bldc_motorB.dir = CW;
+                    g_bldc_motorA.setdir = CCW;
+                    g_bldc_motorB.setdir = CW;
                     
                 }else
                 {
-                    g_bldc_motorA.dir = CW;
-                    g_bldc_motorB.dir = CCW;
+                    g_bldc_motorA.setdir = CW;
+                    g_bldc_motorB.setdir = CCW;
                     
                 }
                 
@@ -236,35 +280,75 @@ void ESP32_fetinst(uint8_t mode)
         
         g_uart_send_esp.v_bus = g_bldc_motorA.v_bus;
         g_uart_send_esp.v_tee = g_bldc_motorA.v_t / 100;
+        //调试用。。。。。
+        if(g_bldc_motorA.hall_erro_count == 1)
+        {
+            g_uart_send_esp.v_tee = 1;
+        }else if(g_bldc_motorA.max_c == 1)
+        {
+            g_uart_send_esp.v_tee = 2;
+        }else if(g_bldc_motorA.max_t == 1)
+        {
+            g_uart_send_esp.v_tee = 3;
+        }else if(g_bldc_motorA.locked_rotor == 1)
+        {
+            g_uart_send_esp.v_tee = 4;
+        }else
+        {
+            g_uart_send_esp.v_tee = g_bldc_motorA.step_all_time;
+        }
+        
+        
+        //速度计算
         //取最小的速度，避免打滑
         //电机齿 14T  车轮齿 36T  车轮直径 90mm  90mm * 3.14 * (rpm/min / (36t/14t)) * 60min = mm/h    0.0065 * rpm
-        g_uart_send_esp.speed = ((g_bldc_motorA.speed + g_bldc_motorB.speed) / 2 * 0.0065f); // (g_bldc_motorA.speed * 0.0065f) ;
-//        g_uart_send_esp.speed = g_bldc_motorA.speed > g_bldc_motorB.speed ?  (g_bldc_motorB.speed * 0.0065f) : (g_bldc_motorA.speed * 0.0065f) ;
-        g_uart_send_esp.current = (g_bldc_motorA.current + g_bldc_motorB.current) / 2;
+        speed_L = g_bldc_motorA.speed * 0.0073f;
+        speed_R = g_bldc_motorB.speed * 0.0073f;
         
+        //有一个电机没接
+        if(speed_L == 0 || speed_R == 0)
+        {
+            if(speed_L == 0)
+            {
+                g_uart_send_esp.speed = speed_R;
+            }else
+            {
+                g_uart_send_esp.speed = speed_L;
+            }
+        }else
+        {
+            if(speed_L > speed_R)
+            {
+                g_uart_send_esp.speed = speed_R;
+            }else
+            {
+                g_uart_send_esp.speed = speed_L;
+            }
+        }
+        //电流
+        g_uart_send_esp.current = (g_bldc_motorA.current + g_bldc_motorB.current) / 2;
+        //发送信息
         usart_send_data((uint8_t*)&g_uart_send_esp,sizeof(g_uart_send_esp));
         
     }else
     {
-        if(int_abs(time_num - esp32_lose_time) > 1000)
+        if(int_abs(g_bldc_time.g_time_sys - esp32_lose_time) > 1000)
         {
-            
             g_bldc_motorA.run_flag = STOP;
             g_bldc_motorB.run_flag = STOP;
             
             g_bldc_motorA.brake_flag = 1;
             g_bldc_motorB.brake_flag = 1;
             
-            #if(BK_UES_PID == 1)
-            
-            g_MA_break_pid.SetPoint = Break_pidcc[2];
-            g_MA_break_pid.SetPoint = Break_pidcc[2];
-            
-            #else
-            g_bldc_motorA.brake_duty = Break_num[2];
-            g_bldc_motorB.brake_duty = g_bldc_motorA.brake_duty;
-            #endif
-            
+            if(BK_UES_PID == 1)
+            {
+                g_MA_break_pid.SetPoint = Break_pidcc[4];
+                g_MB_break_pid.SetPoint = Break_pidcc[4];
+            }else
+            {
+                g_bldc_motorA.brake_duty = Break_num[8];
+                g_bldc_motorB.brake_duty = Break_num[8];
+            }
         }
     }
 }

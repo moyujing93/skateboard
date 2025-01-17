@@ -27,15 +27,19 @@
 #include "./SYSTEM/sys/sys.h"
 
 
-
 void MA_uhvl(void);
 void MA_uhwl(void);
 void MA_vhwl(void);
 void MA_vhul(void);
 void MA_whul(void);
 void MA_whvl(void);
+void MA_whvl_l(void);
+
 void MA_stop(void);
 void MA_break(void);
+void MA_br_uhvwl(void);
+void MA_br_vhuwl(void);
+void MA_br_whuvl(void);
 
 void MB_uhvl(void);
 void MB_uhwl(void);
@@ -43,14 +47,20 @@ void MB_vhwl(void);
 void MB_vhul(void);
 void MB_whul(void);
 void MB_whvl(void);
+
 void MB_stop(void);
 void MB_break(void);
 
+void MB_br_uhvwl(void);
+void MB_br_vhuwl(void);
+void MB_br_whuvl(void);
+
 void MX_power(uint8_t onoff);
-void MX_break(void);
 
-
-
+void MA_H_afmode(uint8_t sta);
+void MA_L_afmode(uint8_t sta);
+void MB_H_afmode(uint8_t sta);
+void MB_L_afmode(uint8_t sta);
 
 
 #endif

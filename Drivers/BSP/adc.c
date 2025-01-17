@@ -90,42 +90,42 @@ void adc1_dma_init(void)
     /* 配置ADC通道 */
     adc_ch_conf.Channel = ADC_CHANNEL_0;                                     /* 通道 */
     adc_ch_conf.Rank = ADC_REGULAR_RANK_1;                                  /* 序列 */
-    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
+    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
     HAL_ADC_ConfigChannel(&g_adc_dma_handle, &adc_ch_conf);                 /* 通道配置 */
     /* 配置ADC通道 */
     adc_ch_conf.Channel = ADC_CHANNEL_1;                                     /* 通道 */
     adc_ch_conf.Rank = ADC_REGULAR_RANK_2;                                  /* 序列 */
-    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
+    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
     HAL_ADC_ConfigChannel(&g_adc_dma_handle, &adc_ch_conf);                 /* 通道配置 */
     /* 配置ADC通道 */
     adc_ch_conf.Channel = ADC_CHANNEL_2;                                     /* 通道 */
     adc_ch_conf.Rank = ADC_REGULAR_RANK_3;                                  /* 序列 */
-    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
+    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
     HAL_ADC_ConfigChannel(&g_adc_dma_handle, &adc_ch_conf);                 /* 通道配置 */
     /* 配置ADC通道 */
     adc_ch_conf.Channel = ADC_CHANNEL_3;                                     /* 通道 */
     adc_ch_conf.Rank = ADC_REGULAR_RANK_4;                                  /* 序列 */
-    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
+    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
     HAL_ADC_ConfigChannel(&g_adc_dma_handle, &adc_ch_conf);                 /* 通道配置 */
     /* 配置ADC通道 */
     adc_ch_conf.Channel = ADC_CHANNEL_4;                                     /* 通道 */
     adc_ch_conf.Rank = ADC_REGULAR_RANK_5;                                  /* 序列 */
-    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
+    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
     HAL_ADC_ConfigChannel(&g_adc_dma_handle, &adc_ch_conf);                 /* 通道配置 */
     /* 配置ADC通道 */
     adc_ch_conf.Channel = ADC_CHANNEL_5;                                     /* 通道 */
     adc_ch_conf.Rank = ADC_REGULAR_RANK_6;                                  /* 序列 */
-    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
+    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
     HAL_ADC_ConfigChannel(&g_adc_dma_handle, &adc_ch_conf);                 /* 通道配置 */
     /* 配置ADC通道 */
     adc_ch_conf.Channel = ADC_CHANNEL_14;                                     /* 通道 */
     adc_ch_conf.Rank = ADC_REGULAR_RANK_7;                                  /* 序列 */
-    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
+    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
     HAL_ADC_ConfigChannel(&g_adc_dma_handle, &adc_ch_conf);                 /* 通道配置 */
     /* 配置ADC通道 */
     adc_ch_conf.Channel = ADC_CHANNEL_15;                                     /* 通道 */
     adc_ch_conf.Rank = ADC_REGULAR_RANK_8;                                  /* 序列 */
-    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
+    adc_ch_conf.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;                  /* 采样时间，设置最大采样周期:239.5个ADC周期 */
     HAL_ADC_ConfigChannel(&g_adc_dma_handle, &adc_ch_conf);                 /* 通道配置 */
     
     HAL_ADCEx_Calibration_Start(&g_adc_dma_handle);                         /* 校准ADC */
@@ -157,11 +157,11 @@ void Sort(uint16_t *pData,uint16_t count)
 }
 
 /**
- * @brief       使能ADC转换
+ * @brief       使能ADC转换，此程序耗时大约1ms
  * @param       取多少次然后平均,值越大,滤波越好
  * @retval      1=成功,0=失败
  */
-void adc_dma_conver(uint8_t num)
+void adc_dma_conver(void)
 {
     static uint16_t Get_time = 0;
     uint32_t GetR_temp = 0;
@@ -169,13 +169,16 @@ void adc_dma_conver(uint8_t num)
     uint16_t MA_cun = 0;
     uint16_t MB_cun = 0;
     uint32_t MA_temp = 0;
+    uint8_t MA_temp_cn = 0;
     uint32_t MB_temp = 0;
+    uint8_t MB_temp_cn = 0;
     uint32_t vt_temp = 0;
     uint32_t vb_temp = 0;
     
-    for(uint8_t i = 0; i < num; i++ )             /* 叠加ADC值 */
+    for(uint8_t i = 0; i < 20; i++ )             /* 叠加ADC值 */
     {
-        delay_us(10);
+        //ADC  ADC_SAMPLETIME_55CYCLES_5  转换一个通道：5us  5us * 8 = 40us
+        
         while(DMA1 -> ISR & (1 << 1) == RESET);   /* 等待DMA传输完成 */
         
         //找到有电流经过的那一相
@@ -187,17 +190,56 @@ void adc_dma_conver(uint8_t num)
         if(MB_cun < GetADC_temp.MB_V_cun) MB_cun = GetADC_temp.MB_V_cun;
         if(MB_cun < GetADC_temp.MB_W_cun) MB_cun = GetADC_temp.MB_W_cun;
         
-        //累加计算
-        MA_temp += MA_cun;
-        MB_temp += MB_cun;
+        
+        
         vb_temp += GetADC_temp.V_B;
         vt_temp += GetADC_temp.V_T;
+        
+        //存在真实电流时才记录
+        if(MA_cun > 50)
+        {
+            MA_temp_cn++;
+            MA_temp += MA_cun;
+        }else
+        {
+            if(MA_temp_cn <= 1)
+            {
+                MA_temp = 0;
+            }
+        }
+        
+        //存在真实电流时才记录
+        if(MB_cun > 50)
+        {
+            MB_temp_cn++;
+            MB_temp += MB_cun;
+        }else
+        {
+            if(MB_temp_cn <= 1)
+            {
+                MB_temp = 0;
+            }
+        }
     }
     
-    MA_temp /= num;
-    MB_temp /= num;
-    vb_temp /= num;
-    vt_temp /= num;
+    
+    //平均化处理
+    vb_temp /= 20;
+    vt_temp /= 20;
+    
+    //计算有效电流
+    if(MA_temp_cn > 0)
+    {
+        MA_temp /= MA_temp_cn;
+    }
+    MA_temp_cn = 0;
+    
+    if(MB_temp_cn > 0)
+    {
+        MB_temp /= MB_temp_cn;
+    }
+    MB_temp_cn = 0;
+    
     
     /* 电流计算:运放 = 20，采样电阻3mR,抬升电压 0v 
     I(A)=(U(mV)/20)/R(mR)
@@ -207,18 +249,18 @@ void adc_dma_conver(uint8_t num)
     X = 0.074f
     */
     
-    g_bldc_motorA.current = MA_temp / 0.07f;
-    g_bldc_motorB.current = MB_temp / 0.07f;
+    g_bldc_motorA.current = (g_bldc_motorA.current * 0.8f) + ((MA_temp / 0.07f)*0.2f);
+    g_bldc_motorB.current = (g_bldc_motorB.current * 0.8f) + ((MB_temp / 0.07f)*0.2f);
     
-     if(Get_time > 100)  /* 电压和温度变化没那么快，且耗时长，没必要太频繁计算， */
+     if(Get_time > 50)  /* 电压和温度变化没那么快，且耗时长，没必要太频繁计算， */
     {
         /*
-        电压计算:分压/电压 = 0.0517    电阻：20k | 1k
-        adc = 4096时 电压3.3*20+3.3 = 69.3v
+        电压计算:分压/电压 =     电阻：24k | 1.5k
+        adc = 4096时 电压 = 56.1v
         69.3v = 4096 * x
-        x   =  63.8v / 4096
+        x   =  56.1v / 4096
         */
-        g_bldc_motorA.v_bus = g_bldc_motorA.v_bus * 0.95f + (vb_temp * 16.92f) * 0.05f;  //单位mV
+        g_bldc_motorA.v_bus = g_bldc_motorA.v_bus * 0.8f + (vb_temp * 13.67f) * 0.2f;  //单位mV
         g_bldc_motorB.v_bus = g_bldc_motorA.v_bus;  //单位mV
         
         /*

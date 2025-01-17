@@ -50,7 +50,7 @@ typedef struct
 
 /***************************************** º¯Êý *************************************************/
 void adc1_dma_init(void);
-void adc_dma_conver(uint8_t num);
+void adc_dma_conver(void);
 
 
 

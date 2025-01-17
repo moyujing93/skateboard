@@ -133,7 +133,7 @@ void usart_init(uint32_t baudrate)
     
     #if USART_EN_RX
     HAL_NVIC_EnableIRQ(USART1_IRQn);                      /* 使能USART1中断通道 */
-    HAL_NVIC_SetPriority(USART1_IRQn, 2, 0);             
+    HAL_NVIC_SetPriority(USART1_IRQn, 4, 0);             
     #endif
     /*UART 初始化设置*/
     g_uart1_handle.Instance = USART1;                                       /* USART_UX */
@@ -191,7 +191,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
  */
 void USART1_IRQHandler(void)
 {
-
+    uint8_t  e_cunt = 0;
+    
     HAL_UART_IRQHandler(&g_uart1_handle);                               /* 调用HAL库中断处理公用函数 */
     
        /*   调试发现有概率出现中断溢出错误   */
@@ -200,7 +201,13 @@ void USART1_IRQHandler(void)
         __HAL_UART_CLEAR_OREFLAG(&g_uart1_handle);
     }
     
-    HAL_UART_Receive_IT(&g_uart1_handle, (uint8_t *)&g_rx_buffer, 1);
+    while(HAL_UART_Receive_IT(&g_uart1_handle, (uint8_t *)&g_rx_buffer, 1) != HAL_OK)
+    {
+        if(++e_cunt > 10)
+        {
+            break;
+        }
+    }
 }
 
 /**

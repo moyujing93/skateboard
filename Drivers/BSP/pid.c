@@ -27,6 +27,8 @@
 #include "./BSP/bldc.h"
 
 
+uint8_t  BK_UES_PID  = 0;
+
 PID_TypeDef  g_MA_speed_pid = { 0 };           /* 速度环PID参数结构体 */
 PID_TypeDef  g_MA_current_pid = { 0 };         /* 电流环PID参数结构体 */
 
@@ -200,7 +202,8 @@ static void motor_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid_speed,PID_T
     
     uint16_t pwm_temp1;
     uint16_t pwm_temp2;
-    if(pid_bldc_motor->run_flag == RUN  &&  pid_bldc_motor->max_t == RESET  && pid_bldc_motor->hall_erro == RESET)
+    if(pid_bldc_motor->run_flag == RUN  &&  pid_bldc_motor->max_t == RESET  && pid_bldc_motor->hall_erro_count < 20 && \
+        pid_bldc_motor->low_p == RESET  && pid_bldc_motor->locked_rotor  == RESET)
     {
 //        if (pid_bldc_motor->max_c == SET)
 //        {
@@ -249,14 +252,14 @@ static void motor_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid_speed,PID_T
 
 
 /**
- * @brief       中断服务函数，不调用公共处理函数。
+ * @brief       通电刹车PID。
  * @param       
  * @retval      
  */
 static void break_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid)
 {
     
-    if(pid_bldc_motor->brake_flag)
+    if(pid_bldc_motor->brake_flag > 0)
     {
         pid_bldc_motor->brake_duty = increment_pid_ctrl(pid,pid_bldc_motor->current);
     }else

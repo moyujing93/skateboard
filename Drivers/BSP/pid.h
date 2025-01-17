@@ -31,25 +31,23 @@
 
 
 #define  UES_PID           1
-#define  BK_UES_PID        1
-
 #define  INCR_LOCT_SELECT  1         /* 0：位置式 ，1：增量式 */
 
 #if INCR_LOCT_SELECT
 
 /* 转速PID参数相关宏 */
-#define  KP_S      0.015f               /* P参数 0.05*/
-#define  KI_S      0.005f               /* I参数 0.02*/
+#define  KP_S      0.05f               /* P参数 0.05*/
+#define  KI_S      0.02f               /* I参数 0.02*/
 #define  KD_S      0.00f                /* D参数*/
 
 /* 电流PID参数相关宏 */
-#define  KP_C      0.02f               /* P参数  0.005*/
-#define  KI_C      0.005f               /* I参数  0.002*/
+#define  KP_C      0.005f               /* P参数  0.005*/
+#define  KI_C      0.002f               /* I参数  0.002*/
 #define  KD_C      0.00f                /* D参数*/
 
-/* 刹车电阻PID参数相关宏 */
-#define  KP_BK      0.08f               /* P参数  0.005*/
-#define  KI_BK      0.03f               /* I参数  0.002*/
+/* 通电刹车PID参数相关宏 */
+#define  KP_BK      0.05f               /* P参数  0.005*/
+#define  KI_BK      0.02f               /* I参数  0.002*/
 #define  KD_BK      0.00f                /* D参数*/
 
 
@@ -74,6 +72,9 @@ typedef struct
     __IO float  LastError;           /* Error[-1] */
     __IO float  PrevError;           /* Error[-2] */
 } PID_TypeDef;
+
+
+extern uint8_t  BK_UES_PID;
 
 extern PID_TypeDef  g_MA_speed_pid;     /*速度环PID参数结构体*/
 extern PID_TypeDef  g_MA_current_pid;   /* 电流环PID参数结构体 */

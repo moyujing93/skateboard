@@ -129,19 +129,24 @@ void DebugMon_Handler(void)
   * @param  None
   * @retval None
   */
-//void PendSV_Handler(void)
-//{
-//}
 
-///**
-//  * @brief  This function handles SysTick Handler.
-//  * @param  None
-//  * @retval None
-//  */
-//void SysTick_Handler(void)
-//{
-//  HAL_IncTick();
-//}
+
+#if SYS_SUPPORT_OS == 0 /* 如果需要支持OS. */
+void PendSV_Handler(void)
+{
+}
+
+/**
+  * @brief  This function handles SysTick Handler.
+  * @param  None
+  * @retval None
+  */
+void SysTick_Handler(void)
+{
+  HAL_IncTick();
+}
+
+#endif
 
 /******************************************************************************/
 /*                 STM32F1xx Peripherals Interrupt Handlers                   */
