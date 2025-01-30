@@ -25,6 +25,7 @@
 #include "./SYSTEM/sys/sys.h"
 #include "./SYSTEM/usart/usart.h"
 #include "./BSP/bldc.h"
+#include "stm32f1xx_it.h"
 
 
 
@@ -124,11 +125,13 @@ void usart_init(uint32_t baudrate)
     gpio_init_struct.Pin = USART_TX_GPIO_PIN;               /* 串口发送引脚号 */
     gpio_init_struct.Mode = GPIO_MODE_AF_PP;                /* 复用推挽输出 */
     gpio_init_struct.Pull = GPIO_PULLUP;                    /* 上拉 */
-    gpio_init_struct.Speed = GPIO_SPEED_FREQ_HIGH;          /* IO速度设置为高速 */
+    gpio_init_struct.Speed = GPIO_SPEED_FREQ_MEDIUM;          /* IO速度设置为高速 */
     HAL_GPIO_Init(USART_TX_GPIO_PORT, &gpio_init_struct);
             
-    gpio_init_struct.Pin = USART_RX_GPIO_PIN;               /* 串口RX脚 模式设置 */
-    gpio_init_struct.Mode = GPIO_MODE_AF_INPUT;    
+    gpio_init_struct.Pin =   USART_RX_GPIO_PIN;               /* 串口RX脚 模式设置 */
+    gpio_init_struct.Mode =  GPIO_MODE_AF_INPUT;
+    gpio_init_struct.Pull =  GPIO_PULLUP;                    /* 上拉 */
+    gpio_init_struct.Speed = GPIO_SPEED_FREQ_LOW;          /* IO速度设置为高速 */
     HAL_GPIO_Init(USART_RX_GPIO_PORT, &gpio_init_struct);   /* 串口RX脚 必须设置成输入模式 */
     
     #if USART_EN_RX
@@ -143,8 +146,9 @@ void usart_init(uint32_t baudrate)
     g_uart1_handle.Init.Parity = UART_PARITY_NONE;                            /* 无奇偶校验位 */
     g_uart1_handle.Init.HwFlowCtl = UART_HWCONTROL_NONE;                      /* 无硬件流控 */
     g_uart1_handle.Init.Mode = UART_MODE_TX_RX;                               /* 收发模式 */
+    g_uart1_handle.Init.OverSampling = UART_OVERSAMPLING_16;
     HAL_UART_Init(&g_uart1_handle);                                           /* HAL_UART_Init()会使能UART1 */
-
+    
     /* 该函数会开启接收中断：标志位UART_IT_RXNE，并且设置接收缓冲以及接收缓冲接收最大数据量 */
     HAL_UART_Receive_IT(&g_uart1_handle, (uint8_t *)&g_rx_buffer, 1); 
 }
@@ -158,12 +162,13 @@ void usart_init(uint32_t baudrate)
  */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if (huart->Instance == USART1)
+    if (huart->Instance == g_uart1_handle.Instance)
     {
-        if (g_rx_buffer == 0x7b || g_usart_rx_num > 0)                /* 接收到了0x0d（即回车键） */
+        if (g_rx_buffer == 0x7b || g_usart_rx_num > 0)
         {
             g_usart_rx_buf[g_usart_rx_num] = g_rx_buffer;
-            if(g_usart_rx_num == sizeof(struct_read)-1)
+            g_usart_rx_num++;
+            if(g_usart_rx_num >= sizeof(g_esp32_struct))
             {
                 if(g_rx_buffer == 0x7d && g_esp32_struct.sta == 0)  //接收到帧尾,保证数据使用完
                 {
@@ -171,9 +176,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
                     g_esp32_struct.sta = 1;
                 }
                 g_usart_rx_num = 0;             //缓冲区随时为最新数据
-            }else
-            {
-                g_usart_rx_num++;
             }
             
         }else
@@ -191,22 +193,25 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
  */
 void USART1_IRQHandler(void)
 {
-    uint8_t  e_cunt = 0;
-    
     HAL_UART_IRQHandler(&g_uart1_handle);                               /* 调用HAL库中断处理公用函数 */
     
-       /*   调试发现有概率出现中断溢出错误   */
-    if(__HAL_UART_GET_FLAG(&g_uart1_handle,UART_FLAG_ORE) != RESET)
+    while (HAL_UART_Receive_IT(&g_uart1_handle, (uint8_t *)&g_rx_buffer, 1) != HAL_OK)     /* 重新开启中断并接收数据 */
     {
-        __HAL_UART_CLEAR_OREFLAG(&g_uart1_handle);
-    }
-    
-    while(HAL_UART_Receive_IT(&g_uart1_handle, (uint8_t *)&g_rx_buffer, 1) != HAL_OK)
-    {
-        if(++e_cunt > 10)
+        static uint8_t i = 0;
+        if(++i == 0xff)
         {
+            i = 0;
             break;
         }
+        
+        HAL_UART_AbortReceive(&g_uart1_handle);
+        __HAL_UART_CLEAR_OREFLAG(&g_uart1_handle);
+        __HAL_UART_CLEAR_NEFLAG(&g_uart1_handle);
+        __HAL_UART_CLEAR_IDLEFLAG(&g_uart1_handle);
+        __HAL_UART_CLEAR_PEFLAG(&g_uart1_handle);
+        __HAL_UART_CLEAR_FEFLAG(&g_uart1_handle);
+        
+        /* 如果出错会卡死在这里 */
     }
 }
 

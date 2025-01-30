@@ -41,7 +41,7 @@ int main(void)
     #else
     rs485_init(115200);
     #endif
-    delay_ms(20);
+    delay_ms(50);
     
     
     g_bldc_motorA.pwm_duty = 0;
@@ -49,8 +49,8 @@ int main(void)
     g_bldc_motorA.setdir = CCW;
     g_bldc_motorA.max_c = RESET;
     g_bldc_motorA.max_t = RESET;
-    g_bldc_motorA.hall_erro_count = 0;
     g_bldc_motorA.low_p = RESET;
+    g_bldc_motorA.hall_miss = RESET;
     g_bldc_motorA.v_bus = 20000;
     
     
@@ -59,19 +59,17 @@ int main(void)
     g_bldc_motorB.setdir = CW;
     g_bldc_motorB.max_c = RESET;
     g_bldc_motorB.max_t = RESET;
-    g_bldc_motorB.hall_erro_count = 0;
     g_bldc_motorB.low_p = RESET;
+    g_bldc_motorB.hall_miss = RESET;
     g_bldc_motorB.v_bus = 20000;
     
     
-    bldc_init(1000-1,4-1);
-    //自动设置HALL
-//    MA_hall_auto_set();
-    delay_ms(20);
+    bldc_init(1000-1,HZ_P_RUN-1);
+    delay_ms(50);
     
     adc1_dma_init();
     
-    pid_init(50);
+    pid_init(100);
     
     
     while(1)
@@ -89,34 +87,54 @@ int main(void)
             #endif
         }
         
-        if( g_bldc_time.g_time_task2 >= 10 )
+        if( g_bldc_time.g_time_task2 >= 20 )
         {
             g_bldc_time.g_time_task2 = 0;
             over_load(&g_bldc_motorA);
             over_load(&g_bldc_motorB);
         }
         
-        if( g_bldc_time.g_time_task3 >= 20 )
+        if( g_bldc_time.g_time_task3 >= 10 )
         {
             uint16_t speed_temp = 0;
             g_bldc_time.g_time_task3 = 0;
             /* 计算转速 */
             
-            /*RPM/MIN = （get_speed_num/极对数/1） * (60000/ time) 
-            列子: PWM周期时间 = 18K = 0.055555ms ,计数值=10 极对数=7;
-            RPM/min = (60000 / (10 * 0.0555)) / 7 = 15444rpm/min
+            /*RPM/MIN = 
+            列子: PWM周期时间 = 18K = 0.055555ms ,计数值=10 极对数 = 7;
+            RPM/min = (60000 / (10 * 2 * 0.0555)) / 7 = 7722rpm/min
             */
             
-            //保证被除数不为0
-            if(g_bldc_motorA.step_all_time > 15)
+            //保证被除数不为0,同时过滤高频干扰
+            if(g_bldc_motorA.step_all_time > 2)
             {
-                speed_temp = 60000/(g_bldc_motorA.step_all_time * 0.0555f) / 7;
-                g_bldc_motorA.speed = 0.3f * speed_temp + 0.7f * g_bldc_motorA.speed;
+                speed_temp = 61714 / g_bldc_motorA.step_all_time;
+                if(g_bldc_motorA.brake_flag > 0)
+                {
+                    speed_temp = speed_temp / (HZ_P_BK / HZ_P_RUN);
+                }
+                if(speed_temp < 10)
+                {
+                    g_bldc_motorA.speed = 0;
+                }else
+                {
+                    g_bldc_motorA.speed = (0.25f * speed_temp) + (0.75f * g_bldc_motorA.speed);
+                }
             }
-            if(g_bldc_motorB.step_all_time > 15)
+            if(g_bldc_motorB.step_all_time > 2)
             {
-                speed_temp = 60000/(g_bldc_motorB.step_all_time * 0.0555f) / 7;
-                g_bldc_motorB.speed = 0.3f * speed_temp + 0.7f * g_bldc_motorB.speed;
+                speed_temp = 61714 / g_bldc_motorB.step_all_time;
+                if(g_bldc_motorB.brake_flag > 0)
+                {
+                    speed_temp = speed_temp / (HZ_P_BK / HZ_P_RUN);
+                }
+                if(speed_temp < 10)
+                {
+                    g_bldc_motorB.speed = 0;
+                }else
+                {
+                    g_bldc_motorB.speed = (0.25f * speed_temp) + (0.75f * g_bldc_motorB.speed);
+                }
             }
             
         }
@@ -187,10 +205,3 @@ void over_load(_bldc_obj *motor_temp)
         }
     }
 }
-/*
- 把电容去掉
- 精英板开启RS485控制MDR
-
-*/
-
-

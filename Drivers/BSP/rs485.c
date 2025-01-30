@@ -159,20 +159,21 @@ static void motor_break(int motor_control)
 
     if(BK_UES_PID == 1)
     {
-        g_MA_break_pid.SetPoint = Break_pidcc[((abs(motor_control) - control_diff - 1) * 20) / (500 - control_diff)];
+        uint8_t temp = ((abs(motor_control) - control_diff - 1) * 20) / (500 - control_diff);
+        temp = int_limit(temp,1,20);
+        g_MA_break_pid.SetPoint = 1.2f * Break_pidcc[temp - 1];
         g_MB_break_pid.SetPoint = g_MA_break_pid.SetPoint;
     //    MX_brake_duty   =  Break_num[((abs(motor_control) - control_diff - 1) * 8) / (500 - control_diff)];
     }else
     {
         motor_control = int_abs(motor_control);
         motor_control = int_limit(motor_control,0,500);
-        motor_control = 250 + (abs(motor_control) * 1.2f);
-        motor_control = int_limit(motor_control,0,850);
+        motor_control = 100 + (abs(motor_control) * 1.8f);
+        motor_control = int_limit(motor_control,0,980);
         
         g_bldc_motorA.brake_duty = motor_control;
         g_bldc_motorB.brake_duty = motor_control;
         
-    //    MX_brake_duty   =  g_bldc_motorA.brake_duty;
     }
 }
 
@@ -223,7 +224,7 @@ void ESP32_fetinst(uint8_t mode)
                 if(g_bldc_motorA.setdir  != g_bldc_motorA.step_dir)
                 {
                     //电机在受外力反转，限制电流
-                    g_MA_current_pid.SetPoint = int_limit(cun_temp,0,MAX_CURRENT / 5);
+                    g_MA_current_pid.SetPoint = int_limit(cun_temp,0,MAX_CURRENT / 3);
                 }else
                 {
                     g_MA_current_pid.SetPoint  = cun_temp;
@@ -233,14 +234,14 @@ void ESP32_fetinst(uint8_t mode)
                 if( g_bldc_motorB.setdir != g_bldc_motorB.step_dir)
                 {
                     //电机在受外力反转，限制电流
-                    g_MB_current_pid.SetPoint = int_limit(cun_temp,0,MAX_CURRENT / 5);
+                    g_MB_current_pid.SetPoint = int_limit(cun_temp,0,MAX_CURRENT / 3);
                     
                 }else
                 {
                     g_MB_current_pid.SetPoint  = cun_temp;
                 }
                 
-            }else if(motor_control < -(control_diff*3.0f))  // 刹车
+            }else if(motor_control < -(control_diff*1.5f))  // 刹车
             {
                 
                 motor_break(motor_control);
@@ -279,9 +280,11 @@ void ESP32_fetinst(uint8_t mode)
         g_uart_send_esp.bb = 0x7d;
         
         g_uart_send_esp.v_bus = g_bldc_motorA.v_bus;
+        g_uart_send_esp.v_bus = 19000 + (6 * g_bldc_motorA.pwm_duty);//19000;//25000;
+        g_uart_send_esp.v_bus = 19000 + (1.0f * g_bldc_motorA.current);//19000;//25000;
         g_uart_send_esp.v_tee = g_bldc_motorA.v_t / 100;
         //调试用。。。。。
-        if(g_bldc_motorA.hall_erro_count == 1)
+        if(g_bldc_motorA.hall_miss == SET)
         {
             g_uart_send_esp.v_tee = 1;
         }else if(g_bldc_motorA.max_c == 1)
@@ -295,7 +298,8 @@ void ESP32_fetinst(uint8_t mode)
             g_uart_send_esp.v_tee = 4;
         }else
         {
-            g_uart_send_esp.v_tee = g_bldc_motorA.step_all_time;
+//            g_uart_send_esp.v_tee = g_bldc_motorB.step_all_time;
+            g_uart_send_esp.v_tee = g_bldc_motorA.v_bus / 1000;
         }
         
         
@@ -332,7 +336,7 @@ void ESP32_fetinst(uint8_t mode)
         
     }else
     {
-        if(int_abs(g_bldc_time.g_time_sys - esp32_lose_time) > 1000)
+        if((g_bldc_time.g_time_sys - esp32_lose_time) > 1000)
         {
             g_bldc_motorA.run_flag = STOP;
             g_bldc_motorB.run_flag = STOP;
@@ -342,8 +346,8 @@ void ESP32_fetinst(uint8_t mode)
             
             if(BK_UES_PID == 1)
             {
-                g_MA_break_pid.SetPoint = Break_pidcc[4];
-                g_MB_break_pid.SetPoint = Break_pidcc[4];
+                g_MA_break_pid.SetPoint = Break_pidcc[2];
+                g_MB_break_pid.SetPoint = Break_pidcc[2];
             }else
             {
                 g_bldc_motorA.brake_duty = Break_num[8];

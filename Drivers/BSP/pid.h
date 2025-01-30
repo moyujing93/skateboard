@@ -41,13 +41,13 @@
 #define  KD_S      0.00f                /* D参数*/
 
 /* 电流PID参数相关宏 */
-#define  KP_C      0.005f               /* P参数  0.005*/
-#define  KI_C      0.002f               /* I参数  0.002*/
+#define  KP_C      0.001f               /* P参数  0.005*/
+#define  KI_C      0.001f               /* I参数  0.002*/
 #define  KD_C      0.00f                /* D参数*/
 
 /* 通电刹车PID参数相关宏 */
-#define  KP_BK      0.05f               /* P参数  0.005*/
-#define  KI_BK      0.02f               /* I参数  0.002*/
+#define  KP_BK      0.002f               /* P参数  0.005*/
+#define  KI_BK      0.002f               /* I参数  0.002*/
 #define  KD_BK      0.00f                /* D参数*/
 
 
