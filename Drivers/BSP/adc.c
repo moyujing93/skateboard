@@ -83,7 +83,7 @@ void adc1_dma_init(void)
     HAL_ADC_Init(&g_adc_dma_handle);                                        /* 初始化 */
     
     /* 配置DMA数据流请求中断优先级 */
-    HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 7, 0);
+    HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 4, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
     __HAL_LINKDMA(&g_adc_dma_handle, DMA_Handle, g_dma_adc_handle);         /* 将DMA与adc联系起来 */
 
@@ -278,7 +278,7 @@ void adc_dma_conver(void)
         T = 1/( 1 / T0    +    (1 / B ln(R/R0) ) )
         这里使用的25摄氏度电阻10k,B值是3950
         T = 1/( 0.00335402 +   ( 0.000253165 * ln(R/10000)))
-        3,开尔文温度减去273.15得到摄氏度
+        3,开尔文温度减去 273.15得到摄氏度
         */
         
         GetR_temp = 40960000 / vt_temp  -  12500;  // 减去偏移值

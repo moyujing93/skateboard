@@ -107,11 +107,15 @@
 #define CW                          (0)                 /* 顺时针 */
 #define RUN                         (1)                 /* 电机运动标志 */
 #define STOP                        (0)                 /* 电机停机标志 */
-#define MAX_PWM                     (900)               /* 最大占空比0-1000 */
 #define HOT_OTP                     (10000)             /* 高温保护阈值25度=2500 */
 #define MAX_CURRENT                 (50000)             /* 能检测的最大电流ma */
-#define SET_CURRENT                 (35000)             /* 能控制的最大电流ma */
-#define MAX_RPM                     (80000)             /* 最大转速RPM/MIN */
+#define SET_CURRENT                 (30000)             /* 能控制的最大电流ma */
+#define MAX_PWM_SET                  (900)              /* 全局最大加速PWM */
+#define MAX_PWM_BRAKE_SET            (990)              /* 全局最大刹车PWM */
+#define MAX_RPM                     (8000)              /* 最大转速RPM/MIN */
+#define BK_LEVEL                    (5)                 /* 电流锁止刹车占空比的除数 */
+#define HZ_P_RUN                    (5)                 /* tim的plc分频 */
+#define HZ_P_BK                     (15)                /* tim的plc分频 */
 
 /***************************************** 函数 *************************************************/
 typedef enum
@@ -144,12 +148,13 @@ typedef struct
     volatile uint8_t    low_p;   /* 低压保护 */
     volatile uint8_t    low_p_count;   /* 时间计数 */
     
-    volatile uint8_t    hall_erro_count;        /* 霍尔健康度 */
+    volatile uint8_t    hall_erro_count;  /* 霍尔健康度 */
+    volatile uint8_t    hall_miss;        /* 霍尔丢失 */
     volatile uint8_t    step_sta;         /* 本次霍尔状态 */
     volatile uint8_t    step_last;        /* 上次霍尔状态 */
     volatile uint8_t    step_dir;         /* 用于计算旋转方向 */
-    volatile uint16_t   step_all_time;    /* 6步换向用时，计算用 */
-    volatile uint16_t   step_count;
+    volatile uint16_t   step_all_time;    /* 3步换向用时，计算用 */
+    volatile uint16_t   step_count;       /* 用于计算旋转方向 */
     
     
     volatile uint8_t    setdir;            /* 电机目标旋转方向 */
@@ -181,13 +186,13 @@ extern _bldc_obj g_bldc_motorA;
 extern _bldc_obj g_bldc_motorB;
 extern _gtime_obj  g_bldc_time;
 
-extern uint16_t MX_brake_duty;
+extern uint16_t MAX_PWM;
+extern uint16_t MAX_PWM_BRAKE;
 
-void MA_hall_auto_set(void);
-int int_limit(int num,int min ,int max);
-int int_abs(int num);
 void bldc_init(uint16_t arr, uint16_t psc);
 
+int int_abs(int num);
+int int_limit(int num,int min ,int max);
 
 
 

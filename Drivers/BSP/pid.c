@@ -27,7 +27,8 @@
 #include "./BSP/bldc.h"
 
 
-uint8_t  BK_UES_PID  = 0;
+uint8_t  BK_UES_PID  = 1;
+
 
 PID_TypeDef  g_MA_speed_pid = { 0 };           /* 速度环PID参数结构体 */
 PID_TypeDef  g_MA_current_pid = { 0 };         /* 电流环PID参数结构体 */
@@ -60,7 +61,7 @@ static void pid_timer_init(uint16_t hz )
     g_tim2_handle.Init.RepetitionCounter = 0;                  /* 重复计数*/
     HAL_TIM_Base_Init(&g_tim2_handle);
     /* 优先级不用太高 */
-    HAL_NVIC_SetPriority(TIM2_IRQn,8,0);
+    HAL_NVIC_SetPriority(TIM2_IRQn,3,0);
     HAL_NVIC_EnableIRQ(TIM2_IRQn);
     HAL_TIM_Base_Start_IT(&g_tim2_handle);
     
@@ -193,34 +194,81 @@ int32_t increment_pid_ctrl(PID_TypeDef *PID,float Feedback_value)
 
 
 /**
+ * @brief       pid闭环控制
+ * @param       *PID：PID结构体变量地址
+ * @param       Feedback_value：当前实际值
+ * @retval      期望输出值
+ */
+int32_t break_pid_ctrl(PID_TypeDef *PID,float Feedback_value)
+{
+    //绝对值计算
+    if(Feedback_value < 0) Feedback_value = -Feedback_value;
+    
+    PID->Error = (float)(PID->SetPoint - Feedback_value);                   /* 计算偏差 */
+#if  INCR_LOCT_SELECT                                                       /* 增量式PID */
+    
+    PID->ActualValue += (PID->Proportion * (PID->Error - PID->LastError))                          /* 比例环节 */
+                        + (PID->Integral * PID->Error)                                             /* 积分环节 */
+                        + (PID->Derivative * (PID->Error - 2 * PID->LastError + PID->PrevError));  /* 微分环节 */
+    
+    PID->PrevError = PID->LastError;                                        /* 存储偏差，用于下次计算 */
+    PID->LastError = PID->Error;
+    
+#else                                                                       /* 位置式PID */
+    
+    PID->SumError += PID->Error;
+    PID->ActualValue = (PID->Proportion * PID->Error)                       /* 比例环节 */
+                       + (PID->Integral * PID->SumError)                    /* 积分环节 */
+                       + (PID->Derivative * (PID->Error - PID->LastError)); /* 微分环节 */
+    PID->LastError = PID->Error;
+    
+#endif
+    
+    /* 限制值在有效范围内 */
+    if(PID->ActualValue > MAX_PWM_BRAKE)
+    {
+        PID->ActualValue = MAX_PWM_BRAKE;
+    }
+    else if(PID->ActualValue < 0)
+    {
+        PID->ActualValue = 0;
+    }
+    
+    return ((uint32_t)(PID->ActualValue));                                   /* 返回计算后输出的数值 */
+}
+
+
+
+/**
  * @brief       中断服务函数，不调用公共处理函数。
  * @param       
  * @retval      
  */
 static void motor_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid_speed,PID_TypeDef* pid_current)
 {
-    
     uint16_t pwm_temp1;
     uint16_t pwm_temp2;
-    if(pid_bldc_motor->run_flag == RUN  &&  pid_bldc_motor->max_t == RESET  && pid_bldc_motor->hall_erro_count < 20 && \
+    
+    if(pid_bldc_motor->run_flag == RUN  &&  pid_bldc_motor->max_t == RESET  && pid_bldc_motor->hall_miss == RESET && \
         pid_bldc_motor->low_p == RESET  && pid_bldc_motor->locked_rotor  == RESET)
     {
-//        if (pid_bldc_motor->max_c == SET)
-//        {
-//            pid_current->SetPoint = pid_current->SetPoint / 2;
-//        }
+        if (pid_bldc_motor->max_c == SET)
+        {
+            pid_current->SetPoint = pid_current->SetPoint * 0.75f;
+        }
+        
+        //转速不够高时限制占空比，防止大功率电机过流顿挫
+        if(pid_bldc_motor->speed < 800)
+        {
+            MAX_PWM = MAX_PWM_SET * (0.3f + (0.7f * ( pid_bldc_motor->speed / 800.0f)));
+        }else
+        {
+            MAX_PWM = MAX_PWM_SET;
+        }
+        
         pwm_temp1 = increment_pid_ctrl(pid_current,pid_bldc_motor->current);
         pwm_temp2 = increment_pid_ctrl(pid_speed,pid_bldc_motor->speed);
         
-        /* 实际值为0时限制 */
-//        if(pid_bldc_motor->speed < 100)
-//        {
-//            if(pid_speed->ActualValue > 200 + ((pid_bldc_motor->speed / 100.0f) * (MAX_PWM - 200)))
-//            {
-//                pid_speed->ActualValue = 200 + ((pid_bldc_motor->speed / 100.0f) * (MAX_PWM - 200));
-//                pwm_temp2 = pid_speed->ActualValue;
-//            }
-//        }
         
         if(pwm_temp1 > pwm_temp2)
         {
@@ -239,12 +287,10 @@ static void motor_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid_speed,PID_T
         
         pid_speed->SetPoint = 0;
         pid_speed->ActualValue = 0;
-        pid_speed->LastError = 0;
-        pid_speed->PrevError = 0;
+        
         pid_current->SetPoint = 0;
         pid_current->ActualValue = 0;
-        pid_current->LastError = 0;
-        pid_current->PrevError = 0;
+        
         pid_bldc_motor->pwm_duty = 0;
     }
 }
@@ -261,7 +307,20 @@ static void break_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid)
     
     if(pid_bldc_motor->brake_flag > 0)
     {
-        pid_bldc_motor->brake_duty = increment_pid_ctrl(pid,pid_bldc_motor->current);
+        //转速太高时限制占空比，防止大功率电机过流
+        if(pid_bldc_motor->speed > 700)
+        {
+            MAX_PWM_BRAKE = MAX_PWM_BRAKE_SET * (0.5f + (350.0f  / pid_bldc_motor->speed));
+        }else
+        {
+            MAX_PWM_BRAKE = MAX_PWM_BRAKE_SET;
+        }
+        //电流刹车比内阻刹车制动力大
+        if(g_bldc_motorA.brake_flag == 2)
+        {
+            pid->SetPoint = pid->SetPoint / 1.75f;
+        }
+        pid_bldc_motor->brake_duty = break_pid_ctrl(pid,pid_bldc_motor->current);
     }else
     {
         pid->SetPoint = 0;
