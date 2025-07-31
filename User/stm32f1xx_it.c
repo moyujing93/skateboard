@@ -23,6 +23,7 @@
 #include "stm32f1xx_hal.h"
 #include "stm32f1xx_it.h"
 #include "./SYSTEM/sys/sys.h"
+#include "./BSP/bldc_six_step.h"
    
 /** @addtogroup STM32F1xx_HAL_Examples
   * @{
@@ -44,6 +45,33 @@
 /*            Cortex-M3 Processor Exceptions Handlers                         */
 /******************************************************************************/
 
+
+void Error_Handler(void)
+{
+    /* USER CODE BEGIN Error_Handler_Debug */
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1)
+    {
+        __HAL_TIM_DISABLE(&g_MA_timx_handle);
+        __HAL_TIM_DISABLE(&g_MB_timx_handle);
+
+        /* Main PWM Output Disable */
+        //…œ«≈”√AF£¨œ¬«≈GP
+        MA_H_afmode(1);
+        MB_H_afmode(1);
+        MA_L_afmode(0);
+        MB_L_afmode(0);
+        MA_stop();
+        MB_stop();
+      
+        /* wait for a new PWM period */
+        __HAL_TIM_CLEAR_FLAG(&g_MA_timx_handle,TIM_FLAG_UPDATE);
+        __HAL_TIM_CLEAR_FLAG(&g_MB_timx_handle,TIM_FLAG_UPDATE);
+    }
+    /* USER CODE END Error_Handler_Debug */
+}
+
 /**
   * @brief   This function handles NMI exception.
   * @param  None
@@ -63,7 +91,7 @@ void HardFault_Handler(void)
   /* Go to infinite loop when Hard Fault exception occurs */
   while (1)
   {
-      HAL_NVIC_SystemReset();
+      Error_Handler();
   }
 }
 

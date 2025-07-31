@@ -27,6 +27,8 @@
 
 #include "stm32f1xx.h"
 #include <stdlib.h>
+#include "./BSP/bldc.h"
+#include "./BSP/pid.h"
 
 
 /**

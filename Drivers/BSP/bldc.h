@@ -94,28 +94,23 @@
 #define MB_WL_PORT            GPIOB
 
 
-/********************* 电源开关 *************************/
-
-#define MX_POWER_PIN             GPIO_PIN_12
-#define MX_POWER_PORT            GPIOA
 
 
 
 
 /*************************************** 电机控制状态 ***********************************************/
+#define BBK                         (2)                 /* 逆时针 */
 #define CCW                         (1)                 /* 逆时针 */
 #define CW                          (0)                 /* 顺时针 */
 #define RUN                         (1)                 /* 电机运动标志 */
 #define STOP                        (0)                 /* 电机停机标志 */
-#define HOT_OTP                     (10000)             /* 高温保护阈值25度=2500 */
+#define HOT_OTP                     (10500)             /* 高温保护阈值25度=2500 */
 #define MAX_CURRENT                 (50000)             /* 能检测的最大电流ma */
-#define SET_CURRENT                 (30000)             /* 能控制的最大电流ma */
+#define SET_CURRENT                 (40000)             /* 能控制的最大电流ma */
 #define MAX_PWM_SET                  (900)              /* 全局最大加速PWM */
-#define MAX_PWM_BRAKE_SET            (990)              /* 全局最大刹车PWM */
-#define MAX_RPM                     (8000)              /* 最大转速RPM/MIN */
-#define BK_LEVEL                    (5)                 /* 电流锁止刹车占空比的除数 */
-#define HZ_P_RUN                    (5)                 /* tim的plc分频 */
-#define HZ_P_BK                     (10)                /* tim的plc分频 */
+#define MAX_PWM_BRAKE_SET            (999)              /* 全局最大刹车PWM */
+#define MAX_RPM                      (6000)              /* 最大转速RPM/MIN */
+#define HZ_P_RUN                     (5)                 /* tim的plc分频 */
 
 /***************************************** 函数 *************************************************/
 typedef enum
@@ -146,7 +141,6 @@ typedef struct
     volatile uint8_t    max_c_count;   /* 过流时间计数 */
     volatile uint8_t    max_t;   /* 过热保护 */
     volatile uint8_t    low_p;   /* 低压保护 */
-    volatile uint8_t    low_p_count;   /* 时间计数 */
     
     volatile uint8_t    hall_erro_count;  /* 霍尔健康度 */
     volatile uint8_t    hall_miss;        /* 霍尔丢失 */
@@ -165,9 +159,10 @@ typedef struct
     
     volatile uint16_t   v_bus;          /* 主线电压 mv */
     volatile uint16_t   v_t;         /* 驱动板温度 放大100倍 125 = 1.25摄氏度 */
-    volatile uint16_t   brake_flag;     /* 刹车标志 0 = 无刹车 1 = 电阻刹车 2 = 电流刹车 */
+    
     volatile uint16_t   pwm_duty;       /* 电机占空比 */
     volatile uint16_t   brake_duty;     /* 刹车时的占空比 */
+    volatile uint8_t    brake_mode;
     
     
 //    volatile uint32_t   hall_keep_t;    /* 霍尔保持时间 */
@@ -185,9 +180,8 @@ extern TIM_HandleTypeDef   g_MB_timx_handle;
 extern _bldc_obj g_bldc_motorA;
 extern _bldc_obj g_bldc_motorB;
 extern _gtime_obj  g_bldc_time;
+extern uint32_t TEST_SYS_TICK;
 
-extern uint16_t MAX_PWM;
-extern uint16_t MAX_PWM_BRAKE;
 
 void bldc_init(uint16_t arr, uint16_t psc);
 

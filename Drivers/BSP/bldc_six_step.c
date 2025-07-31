@@ -29,8 +29,8 @@
 # define    FD6288T     1
 
 /**
-  * @brief  AF模式和output模式得切换
-  * @param  无
+  * @brief  设置GPIO的AF模式与普通GPIO模式
+  * @param  1 = AF-MODE   0 = GPIO-MODE
   * @retval 无
   */
 void MA_H_afmode(uint8_t sta)
@@ -55,7 +55,11 @@ void MA_H_afmode(uint8_t sta)
         MA_WH_PWM_PORT->CRH &= ~((uint32_t)0x08 << 0);
     }
 }
-
+/**
+  * @brief  设置GPIO的AF模式与普通GPIO模式
+  * @param  1 = AF-MODE   0 = GPIO-MODE
+  * @retval 无
+  */
 void MA_L_afmode(uint8_t sta)
 {
     if(sta)
@@ -80,8 +84,8 @@ void MA_L_afmode(uint8_t sta)
 }
 
 /**
-  * @brief  AF模式和output模式得切换
-  * @param  无
+  * @brief  设置GPIO的AF模式与普通GPIO模式
+  * @param  1 = AF-MODE   0 = GPIO-MODE
   * @retval 无
   */
 void MB_H_afmode(uint8_t sta)
@@ -107,7 +111,11 @@ void MB_H_afmode(uint8_t sta)
     }
 }
 
-
+/**
+  * @brief  设置GPIO的AF模式与普通GPIO模式
+  * @param  1 = AF-MODE   0 = GPIO-MODE
+  * @retval 无
+  */
 void MB_L_afmode(uint8_t sta)
 {
     if(sta)
@@ -130,6 +138,8 @@ void MB_L_afmode(uint8_t sta)
         MB_WL_PORT->CRH &=  ~((uint32_t)0x08 << 28);
     }
 }
+
+
 
 
 //桥驱动芯片FD6288T，自带死区控制，防止上下桥同时导通
@@ -170,7 +180,7 @@ void MA_uhwl(void)
 {
     /******* 上桥臂PWM部分 ********/
     g_MA_timx_handle.Instance->CCR1 = g_bldc_motorA.pwm_duty;
-    g_MA_timx_handle.Instance->CCR2 = 0;//g_bldc_motorA.pwm_duty / BK_LEVEL;
+    g_MA_timx_handle.Instance->CCR2 = 0;
     g_MA_timx_handle.Instance->CCR3 = 0;
     
     /******* 下桥臂GPIO部分 ******/
@@ -209,7 +219,7 @@ void MA_vhul(void)
     /******* 上桥臂PWM部分 ********/
     g_MA_timx_handle.Instance->CCR1 = 0;   /* U相上桥臂 */
     g_MA_timx_handle.Instance->CCR2 = g_bldc_motorA.pwm_duty;                        /* V相上桥臂 */
-    g_MA_timx_handle.Instance->CCR3 = 0;//g_bldc_motorA.pwm_duty / BK_LEVEL;                        /* W相上桥臂 */
+    g_MA_timx_handle.Instance->CCR3 = 0;
     
     /******* 下桥臂GPIO部分 ******/
     MA_UL_PORT->BSRR = (uint32_t)MA_UL_PIN;
@@ -245,7 +255,7 @@ void MA_whul(void)
 void MA_whvl(void)
 {
     /******* 上桥臂PWM部分 ********/
-    g_MA_timx_handle.Instance->CCR1 = 0;//g_bldc_motorA.pwm_duty / BK_LEVEL;   /* U相上桥臂 */
+    g_MA_timx_handle.Instance->CCR1 = 0;
     g_MA_timx_handle.Instance->CCR2 = 0;                        /* V相上桥臂 */
     g_MA_timx_handle.Instance->CCR3 = g_bldc_motorA.pwm_duty;                        /* W相上桥臂 */
     
@@ -283,71 +293,39 @@ void MA_stop(void)
   */
 void MA_break(void)
 {
-    
     /******* 上桥臂PWM部分 ********/
     MA_UH_PWM_PORT->BSRR = (uint32_t)MA_UH_PWM_PIN << 16u;
     MA_VH_PWM_PORT->BSRR = (uint32_t)MA_VH_PWM_PIN << 16u;
     MA_WH_PWM_PORT->BSRR = (uint32_t)MA_WH_PWM_PIN << 16u;
     
-    /******* 下桥臂PWM部分 ********/
-    g_MA_timx_handle.Instance->CCR1 = (1000 - g_bldc_motorA.brake_duty);    //上桥输出高电平互补通道就输出低电平
-    g_MA_timx_handle.Instance->CCR2 = (1000 - g_bldc_motorA.brake_duty);
-    g_MA_timx_handle.Instance->CCR3 = (1000 - g_bldc_motorA.brake_duty);
+    if(g_bldc_motorA.brake_mode == 1)  //死区补偿
+    {
+        if(g_bldc_motorA.brake_duty <= 950)  //电流太大退出补偿
+        {
+            MA_L_afmode(1);
+            g_bldc_motorA.brake_mode = 0;
+            return;
+        }
+        MA_UL_PORT->BSRR = (uint32_t)MA_UL_PIN;
+        MA_VL_PORT->BSRR = (uint32_t)MA_VL_PIN;
+        MA_WL_PORT->BSRR = (uint32_t)MA_WL_PIN;
+        
+    }else
+    {
+        if(g_bldc_motorA.brake_duty >= MAX_PWM_BRAKE_SET)  //进入补偿
+        {
+            MA_L_afmode(0);
+            g_bldc_motorA.brake_mode = 1;
+            return;
+        }
+        g_MA_timx_handle.Instance->CCR1 = (1000 - g_bldc_motorA.brake_duty);    //上桥输出高电平互补通道就输出低电平
+        g_MA_timx_handle.Instance->CCR2 = (1000 - g_bldc_motorA.brake_duty);
+        g_MA_timx_handle.Instance->CCR3 = (1000 - g_bldc_motorA.brake_duty);
+        
+    }
     
-    
-}
-void MA_br_uhvwl(void)
-{
-    /******* 上桥臂PWM部分 ********/
-    g_MA_timx_handle.Instance->CCR1 = g_bldc_motorA.brake_duty / BK_LEVEL;
-    g_MA_timx_handle.Instance->CCR2 = 0;
-    g_MA_timx_handle.Instance->CCR3 = 0;
-    
-    /******* 下桥臂GPIO部分 ******/
-    MA_UL_PORT->BSRR = (uint32_t)MA_UL_PIN << 16u;
-    MA_VL_PORT->BSRR = (uint32_t)MA_VL_PIN;
-    MA_WL_PORT->BSRR = (uint32_t)MA_WL_PIN;
-}
-
-void MA_br_vhuwl(void)
-{
-    /******* 上桥臂PWM部分 ********/
-    g_MA_timx_handle.Instance->CCR1 = 0;
-    g_MA_timx_handle.Instance->CCR2 = g_bldc_motorA.brake_duty / BK_LEVEL;
-    g_MA_timx_handle.Instance->CCR3 = 0;
-    
-    /******* 下桥臂GPIO部分 ******/
-    MA_UL_PORT->BSRR = (uint32_t)MA_UL_PIN;
-    MA_VL_PORT->BSRR = (uint32_t)MA_VL_PIN << 16u;
-    MA_WL_PORT->BSRR = (uint32_t)MA_WL_PIN;
 }
 
-void MA_br_whuvl(void)
-{
-    /******* 上桥臂PWM部分 ********/
-    g_MA_timx_handle.Instance->CCR1 = 0;
-    g_MA_timx_handle.Instance->CCR2 = 0;
-    g_MA_timx_handle.Instance->CCR3 = g_bldc_motorA.brake_duty / BK_LEVEL;
-    
-    /******* 下桥臂GPIO部分 ******/
-    MA_UL_PORT->BSRR = (uint32_t)MA_UL_PIN;
-    MA_VL_PORT->BSRR = (uint32_t)MA_VL_PIN;
-    MA_WL_PORT->BSRR = (uint32_t)MA_WL_PIN << 16u;
-}
-
-void MA_br_LLL(void)
-{
-    /******* 上桥臂PWM部分 ********/
-    g_MA_timx_handle.Instance->CCR1 = 0;
-    g_MA_timx_handle.Instance->CCR2 = 0;
-    g_MA_timx_handle.Instance->CCR3 = 0;
-    
-    /******* 下桥臂GPIO部分 ******/
-    MA_UL_PORT->BSRR = (uint32_t)MA_UL_PIN;
-    MA_VL_PORT->BSRR = (uint32_t)MA_VL_PIN;
-    MA_WL_PORT->BSRR = (uint32_t)MA_WL_PIN;
-    g_bldc_motorA.brake_duty = 0;
-}
 
 /**********************************MOTOR B**************************************/
 
@@ -363,7 +341,6 @@ void MB_uhvl(void)
     g_MB_timx_handle.Instance->CCR1 = g_bldc_motorB.pwm_duty;   /* U相上桥臂 */
     g_MB_timx_handle.Instance->CCR2 = 0;                        /* V相上桥臂 */
     g_MB_timx_handle.Instance->CCR3 = 0;                        /* W相上桥臂 */
-    
     /******* 下桥臂GPIO部分 ******/
     MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN << 16u;
     MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN;
@@ -380,7 +357,7 @@ void MB_uhwl(void)
 {
     /******* 上桥臂PWM部分 ********/
     g_MB_timx_handle.Instance->CCR1 = g_bldc_motorB.pwm_duty;   /* U相上桥臂 */
-    g_MB_timx_handle.Instance->CCR2 = 0;//g_bldc_motorB.pwm_duty / BK_LEVEL;                        /* V相上桥臂 */
+    g_MB_timx_handle.Instance->CCR2 = 0;
     g_MB_timx_handle.Instance->CCR3 = 0;                        /* W相上桥臂 */
     
     /******* 下桥臂GPIO部分 ******/
@@ -401,7 +378,6 @@ void MB_vhwl(void)
     g_MB_timx_handle.Instance->CCR1 = 0;   /* U相上桥臂 */
     g_MB_timx_handle.Instance->CCR2 = g_bldc_motorB.pwm_duty;                        /* V相上桥臂 */
     g_MB_timx_handle.Instance->CCR3 = 0;                        /* W相上桥臂 */
-    
     /******* 下桥臂GPIO部分 ******/
     MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN << 16u;
     MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN << 16u;
@@ -419,8 +395,7 @@ void MB_vhul(void)
     /******* 上桥臂PWM部分 ********/
     g_MB_timx_handle.Instance->CCR1 = 0;
     g_MB_timx_handle.Instance->CCR2 = g_bldc_motorB.pwm_duty;
-    g_MB_timx_handle.Instance->CCR3 = 0;//g_bldc_motorB.pwm_duty / BK_LEVEL;
-    
+    g_MB_timx_handle.Instance->CCR3 = 0;
     /******* 下桥臂GPIO部分 ******/
     MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN;
     MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN << 16u;
@@ -455,7 +430,7 @@ void MB_whul(void)
 void MB_whvl(void)
 {
     /******* 上桥臂PWM部分 ********/
-    g_MB_timx_handle.Instance->CCR1 = 0;//g_bldc_motorB.pwm_duty / BK_LEVEL;
+    g_MB_timx_handle.Instance->CCR1 = 0;
     g_MB_timx_handle.Instance->CCR2 = 0;
     g_MB_timx_handle.Instance->CCR3 = g_bldc_motorB.pwm_duty;
     
@@ -493,97 +468,39 @@ void MB_stop(void)
   */
 void MB_break(void)
 {
-    
     /******* 上桥臂PWM部分 ********/
     MB_UH_PWM_PORT->BSRR = (uint32_t)MB_UH_PWM_PIN << 16u;
     MB_VH_PWM_PORT->BSRR = (uint32_t)MB_VH_PWM_PIN << 16u;
     MB_WH_PWM_PORT->BSRR = (uint32_t)MB_WH_PWM_PIN << 16u;
     
-    /******* 下桥臂PWM部分 ********/
-    g_MB_timx_handle.Instance->CCR1 = (1000 - g_bldc_motorB.brake_duty);    //上桥输出高电平互补通道就输出低电平
-    g_MB_timx_handle.Instance->CCR2 = (1000 - g_bldc_motorB.brake_duty);
-    g_MB_timx_handle.Instance->CCR3 = (1000 - g_bldc_motorB.brake_duty);
-    
-    
-}
-
-void MB_br_uhvwl(void)
-{
-    /******* 上桥臂PWM部分 ********/
-    g_MB_timx_handle.Instance->CCR1 = g_bldc_motorB.brake_duty / BK_LEVEL;
-    g_MB_timx_handle.Instance->CCR2 = 0;
-    g_MB_timx_handle.Instance->CCR3 = 0;
-    
-    /******* 下桥臂GPIO部分 ******/
-    MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN << 16u;
-    MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN;
-    MB_WL_PORT->BSRR = (uint32_t)MB_WL_PIN;
-}
-
-void MB_br_vhuwl(void)
-{
-    /******* 上桥臂PWM部分 ********/
-    g_MB_timx_handle.Instance->CCR1 = 0;
-    g_MB_timx_handle.Instance->CCR2 = g_bldc_motorB.brake_duty / BK_LEVEL;
-    g_MB_timx_handle.Instance->CCR3 = 0;
-    
-    /******* 下桥臂GPIO部分 ******/
-    MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN;
-    MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN << 16u;
-    MB_WL_PORT->BSRR = (uint32_t)MB_WL_PIN;
-}
-
-void MB_br_whuvl(void)
-{
-    /******* 上桥臂PWM部分 ********/
-    g_MB_timx_handle.Instance->CCR1 = 0;
-    g_MB_timx_handle.Instance->CCR2 = 0;
-    g_MB_timx_handle.Instance->CCR3 = g_bldc_motorB.brake_duty / BK_LEVEL;
-    
-    /******* 下桥臂GPIO部分 ******/
-    MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN;
-    MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN;
-    MB_WL_PORT->BSRR = (uint32_t)MB_WL_PIN << 16u;
-}
-
-void MB_br_LLL(void)
-{
-    /******* 上桥臂PWM部分 ********/
-    g_MB_timx_handle.Instance->CCR1 = 0;
-    g_MB_timx_handle.Instance->CCR2 = 0;
-    g_MB_timx_handle.Instance->CCR3 = 0;
-    
-    /******* 下桥臂GPIO部分 ******/
-    MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN;
-    MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN;
-    MB_WL_PORT->BSRR = (uint32_t)MB_WL_PIN;
-    g_bldc_motorB.brake_duty = 0;
-}
-
-void MX_power(uint8_t onoff)
-{
-    static uint16_t bk_off_time = 0;
-    if(onoff)
+    if(g_bldc_motorB.brake_mode == 1)  //死区补偿
     {
-        //关闭刹车下桥臂
-//        TIM1->CCR4 = 0;
-        
-        //延时
-        if(bk_off_time == 0)
+        if(g_bldc_motorB.brake_duty <= 950)  //电流太大退出补偿
         {
-            MX_POWER_PORT->BSRR = (uint32_t)MX_POWER_PIN;
-        }else
-        {
-            bk_off_time--;
+            MB_L_afmode(1);
+            g_bldc_motorB.brake_mode = 0;
+            return;
         }
+        MB_UL_PORT->BSRR = (uint32_t)MB_UL_PIN;
+        MB_VL_PORT->BSRR = (uint32_t)MB_VL_PIN;
+        MB_WL_PORT->BSRR = (uint32_t)MB_WL_PIN;
         
     }else
     {
-        bk_off_time = 100;
-        //断电
-        MX_POWER_PORT->BSRR = (uint32_t)MX_POWER_PIN << 16u;
+        if(g_bldc_motorB.brake_duty >= MAX_PWM_BRAKE_SET)  //进入补偿
+        {
+            MB_L_afmode(0);
+            g_bldc_motorB.brake_mode = 1;
+            return;
+        }
+        g_MB_timx_handle.Instance->CCR1 = (1000 - g_bldc_motorB.brake_duty);    //上桥输出高电平互补通道就输出低电平
+        g_MB_timx_handle.Instance->CCR2 = (1000 - g_bldc_motorB.brake_duty);
+        g_MB_timx_handle.Instance->CCR3 = (1000 - g_bldc_motorB.brake_duty);
+        
     }
+    
 }
+
 
 #endif
 

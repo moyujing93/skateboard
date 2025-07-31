@@ -33,15 +33,10 @@ void MA_vhwl(void);
 void MA_vhul(void);
 void MA_whul(void);
 void MA_whvl(void);
-void MA_whvl_l(void);
 
 void MA_stop(void);
 void MA_break(void);
 
-void MA_br_uhvwl(void);
-void MA_br_vhuwl(void);
-void MA_br_whuvl(void);
-void MA_br_LLL(void);
 
 void MB_uhvl(void);
 void MB_uhwl(void);
@@ -52,13 +47,6 @@ void MB_whvl(void);
 
 void MB_stop(void);
 void MB_break(void);
-
-void MB_br_uhvwl(void);
-void MB_br_vhuwl(void);
-void MB_br_whuvl(void);
-void MB_br_LLL(void);
-
-void MX_power(uint8_t onoff);
 
 void MA_H_afmode(uint8_t sta);
 void MA_L_afmode(uint8_t sta);

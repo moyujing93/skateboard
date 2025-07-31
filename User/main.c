@@ -23,6 +23,12 @@
 #define USE_RC     0
 
 
+
+
+IWDG_HandleTypeDef g_iwdg_handle;  /* 独立看门狗句柄 */
+
+
+
 void over_load(_bldc_obj *motor_temp);
 
 int main(void)
@@ -30,6 +36,12 @@ int main(void)
     HAL_Init();                                 /* 优先级分组为4位抢占式 */
     sys_stm32_clock_init(RCC_PLL_MUL9);         /* 设置时钟,72M */
     delay_init(72);                             /* 初始化延时函数 */
+	//启动测试
+	CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+    //获取时间
+	DWT->CYCCNT = 0;
+	if(TEST_SYS_TICK < DWT->CYCCNT) TEST_SYS_TICK = DWT->CYCCNT;
     
     //关掉JTAG用于使用PB3,4
     __HAL_RCC_AFIO_CLK_ENABLE();
@@ -40,13 +52,14 @@ int main(void)
     pulse_init();
     #else
     rs485_init(115200);
+	printf("power on \r\n");
     #endif
     delay_ms(50);
     
     
     g_bldc_motorA.pwm_duty = 0;
     g_bldc_motorA.run_flag = STOP;
-    g_bldc_motorA.setdir = CCW;
+    g_bldc_motorA.setdir = CW;
     g_bldc_motorA.max_c = RESET;
     g_bldc_motorA.max_t = RESET;
     g_bldc_motorA.low_p = RESET;
@@ -56,7 +69,7 @@ int main(void)
     
     g_bldc_motorB.pwm_duty = 0;
     g_bldc_motorB.run_flag = STOP;
-    g_bldc_motorB.setdir = CW;
+    g_bldc_motorB.setdir = CCW;
     g_bldc_motorB.max_c = RESET;
     g_bldc_motorB.max_t = RESET;
     g_bldc_motorB.low_p = RESET;
@@ -72,13 +85,19 @@ int main(void)
     pid_init(100);
     
     
+    g_iwdg_handle.Instance = IWDG;
+    g_iwdg_handle.Init.Prescaler = IWDG_PRESCALER_64; /* 设置IWDG分频系数 40k*/
+    g_iwdg_handle.Init.Reload = 125;     /* 重装载值 */
+    HAL_IWDG_Init(&g_iwdg_handle);       /* 初始化IWDG并启动 */
+    
     while(1)
     {
+        HAL_IWDG_Refresh(&g_iwdg_handle);  /* 重装载计数器 */
         
-        if( g_bldc_time.g_time_task1 >= 15 )
+        if( g_bldc_time.g_time_task1 >= 5 )
         {
             g_bldc_time.g_time_task1 = 0;
-            #if USE_RC
+            #if USE_RC 
             /* RC通讯 */
             pulse_fetinst(0) ;
             #else
@@ -94,7 +113,7 @@ int main(void)
             over_load(&g_bldc_motorB);
         }
         
-        if( g_bldc_time.g_time_task3 >= 10 )
+        if( g_bldc_time.g_time_task3 >= 5 )
         {
             uint16_t speed_temp = 0;
             g_bldc_time.g_time_task3 = 0;
@@ -108,32 +127,24 @@ int main(void)
             //保证被除数不为0,同时过滤高频干扰
             if(g_bldc_motorA.step_all_time > 2)
             {
-                speed_temp = 61714 / g_bldc_motorA.step_all_time;
-                if(g_bldc_motorA.brake_flag > 0)
-                {
-                    speed_temp = speed_temp / (HZ_P_BK / HZ_P_RUN);
-                }
+                speed_temp = 61714 / g_bldc_motorA.step_all_time; //7对级的rpm/min
                 if(speed_temp < 10)
                 {
                     g_bldc_motorA.speed = 0;
                 }else
                 {
-                    g_bldc_motorA.speed = (0.25f * speed_temp) + (0.75f * g_bldc_motorA.speed);
+                    g_bldc_motorA.speed = (speed_temp + 7 * g_bldc_motorA.speed) / 8;
                 }
             }
             if(g_bldc_motorB.step_all_time > 2)
             {
                 speed_temp = 61714 / g_bldc_motorB.step_all_time;
-                if(g_bldc_motorB.brake_flag > 0)
-                {
-                    speed_temp = speed_temp / (HZ_P_BK / HZ_P_RUN);
-                }
                 if(speed_temp < 10)
                 {
                     g_bldc_motorB.speed = 0;
                 }else
                 {
-                    g_bldc_motorB.speed = (0.25f * speed_temp) + (0.75f * g_bldc_motorB.speed);
+                    g_bldc_motorB.speed = (speed_temp + 7 * g_bldc_motorB.speed) / 8;
                 }
             }
             
@@ -142,6 +153,7 @@ int main(void)
         
         if( g_bldc_time.g_time_task4 >= 1 )
         {
+            g_bldc_time.g_time_task4 = 0;
             /* 计算电流，温度*/
             adc_dma_conver();
         }
@@ -155,20 +167,13 @@ int main(void)
 
 void over_load(_bldc_obj *motor_temp)
 {
-    //低电压保护6s
-    if(motor_temp->v_bus  <  18000)
+    //低电压保护8s
+    if(motor_temp->v_bus  <  27000)  
     {
-        motor_temp->low_p_count = 200;
         motor_temp->low_p = SET;
-    }else if(motor_temp->v_bus  >  19000)
+    }else if(motor_temp->v_bus  >  27500)
     {
-        if(motor_temp->low_p_count == 0)
-        {
-            motor_temp->low_p = RESET;
-        }else
-        {
-            motor_temp->low_p_count--;
-        }
+        motor_temp->low_p = RESET;
     }
     
     //温度保护与释放
@@ -185,23 +190,18 @@ void over_load(_bldc_obj *motor_temp)
     if(motor_temp->current > MAX_CURRENT)
     {
         motor_temp->max_c_count++;
-        if(motor_temp->max_c_count > 100)
+        if(motor_temp->max_c_count > 100  &&  motor_temp->speed  < 60)
         {
             motor_temp->max_c_count = 200;
             motor_temp->locked_rotor = SET;
         }else if(motor_temp->max_c_count > 10)
         {
             motor_temp->max_c = SET;
-        }
+        } 
     }else
     {
-        if(motor_temp->max_c_count == 0)
-        {
-            motor_temp->max_c = RESET;
-            motor_temp->locked_rotor = RESET;
-        }else
-        {
-            motor_temp->max_c_count--;
-        }
+        motor_temp->max_c_count = 0;
+        motor_temp->max_c = RESET;
+        motor_temp->locked_rotor = RESET;
     }
 }

@@ -36,18 +36,18 @@
 #if INCR_LOCT_SELECT
 
 /* 转速PID参数相关宏 */
-#define  KP_S      0.05f               /* P参数 0.05*/
-#define  KI_S      0.02f               /* I参数 0.02*/
+#define  KP_S      0.065f               /* P参数 0.05*/
+#define  KI_S      0.015f               /* I参数 0.02*/
 #define  KD_S      0.00f                /* D参数*/
 
 /* 电流PID参数相关宏 */
-#define  KP_C      0.001f               /* P参数  0.005*/
+#define  KP_C      0.0005f               /* P参数  0.005*/
 #define  KI_C      0.001f               /* I参数  0.002*/
 #define  KD_C      0.00f                /* D参数*/
 
-/* 通电刹车PID参数相关宏 */
-#define  KP_BK      0.002f               /* P参数  0.005*/
-#define  KI_BK      0.002f               /* I参数  0.002*/
+/* 刹车PID参数相关宏 */
+#define  KP_BK      0.001f               /* P参数  0.005*/
+#define  KI_BK      0.0025f               /* I参数  0.002*/
 #define  KD_BK      0.00f                /* D参数*/
 
 

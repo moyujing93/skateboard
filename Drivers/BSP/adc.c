@@ -161,6 +161,7 @@ void Sort(uint16_t *pData,uint16_t count)
  */
 void adc_dma_conver(void)
 {
+    GET_ADC_typedef GetADC_motor;
     static uint16_t Get_time = 0;
     uint32_t GetR_temp = 0;
     //ADC计算使用
@@ -176,34 +177,31 @@ void adc_dma_conver(void)
     for(uint8_t i = 0; i < 20; i++ )             /* 叠加ADC值 */
     {
         //ADC  ADC_SAMPLETIME_55CYCLES_5  转换一个通道：5us  5us * 8 = 40us
-        
-        while(DMA1 -> ISR & (1 << 1) == RESET);   /* 等待DMA传输完成 */
-        
+        uint16_t  dma_wt = 0;
+        while((DMA1 -> ISR & (0x01 << 1)) == RESET)   /* 等待DMA传输完成 */
+        {
+            if(++dma_wt > 0xfff0) return;
+        }
+        GetADC_motor = GetADC_temp;
         //找到有电流经过的那一相
-        MA_cun = GetADC_temp.MA_U_cun;
-        if(MA_cun < GetADC_temp.MA_V_cun) MA_cun = GetADC_temp.MA_V_cun;
-        if(MA_cun < GetADC_temp.MA_W_cun) MA_cun = GetADC_temp.MA_W_cun;
+        MA_cun = GetADC_motor.MA_U_cun;
+        if(MA_cun < GetADC_motor.MA_V_cun) MA_cun = GetADC_motor.MA_V_cun;
+        if(MA_cun < GetADC_motor.MA_W_cun) MA_cun = GetADC_motor.MA_W_cun;
         
-        MB_cun = GetADC_temp.MB_U_cun;
-        if(MB_cun < GetADC_temp.MB_V_cun) MB_cun = GetADC_temp.MB_V_cun;
-        if(MB_cun < GetADC_temp.MB_W_cun) MB_cun = GetADC_temp.MB_W_cun;
+        MB_cun = GetADC_motor.MB_U_cun;
+        if(MB_cun < GetADC_motor.MB_V_cun) MB_cun = GetADC_motor.MB_V_cun;
+        if(MB_cun < GetADC_motor.MB_W_cun) MB_cun = GetADC_motor.MB_W_cun;
         
         
         
-        vb_temp += GetADC_temp.V_B;
-        vt_temp += GetADC_temp.V_T;
+        vb_temp += GetADC_motor.V_B;
+        vt_temp += GetADC_motor.V_T;
         
         //存在真实电流时才记录
         if(MA_cun > 50)
         {
             MA_temp_cn++;
             MA_temp += MA_cun;
-        }else
-        {
-            if(MA_temp_cn <= 1)
-            {
-                MA_temp = 0;
-            }
         }
         
         //存在真实电流时才记录
@@ -211,12 +209,6 @@ void adc_dma_conver(void)
         {
             MB_temp_cn++;
             MB_temp += MB_cun;
-        }else
-        {
-            if(MB_temp_cn <= 1)
-            {
-                MB_temp = 0;
-            }
         }
     }
     
@@ -229,14 +221,18 @@ void adc_dma_conver(void)
     if(MA_temp_cn > 0)
     {
         MA_temp /= MA_temp_cn;
+    }else
+    {
+        MA_temp = 0;
     }
-    MA_temp_cn = 0;
     
     if(MB_temp_cn > 0)
     {
         MB_temp /= MB_temp_cn;
+    }else
+    {
+        MB_temp = 0;
     }
-    MB_temp_cn = 0;
     
     
     /* 电流计算:运放 = 20，采样电阻3mR,抬升电压 0v 
@@ -283,7 +279,8 @@ void adc_dma_conver(void)
         /* 这里用100作除数, 把值放大了100 方便以整数的形式发送 */
         vt_temp = (uint16_t)(100.0f/( 0.00335402f +   ( 0.000253165f *  log(GetR_temp/10000.0f))));
         /* 转成摄氏度，温度放大了100倍，所以减27315，而不是273.15 */
-        g_bldc_motorA.v_t = vt_temp - 27315;
+        int v_t_temp  = vt_temp - 27315;
+        g_bldc_motorA.v_t = v_t_temp < 0 ?   0 : v_t_temp;
         g_bldc_motorB.v_t = g_bldc_motorA.v_t;
         
         Get_time = 0;

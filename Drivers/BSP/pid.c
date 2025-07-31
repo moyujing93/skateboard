@@ -25,9 +25,7 @@
 #include "./BSP/pid.h"
 #include "./BSP/adc.h"
 #include "./BSP/bldc.h"
-
-
-uint8_t  BK_UES_PID  = 1;
+#include "./BSP/rs485.h"
 
 
 PID_TypeDef  g_MA_speed_pid = { 0 };           /* 速度环PID参数结构体 */
@@ -179,9 +177,9 @@ int32_t increment_pid_ctrl(PID_TypeDef *PID,float Feedback_value)
 #endif
     
     /* 限制值在有效范围内 */
-    if(PID->ActualValue > MAX_PWM)
+    if(PID->ActualValue > MAX_PWM_SET)
     {
-        PID->ActualValue = MAX_PWM;
+        PID->ActualValue = MAX_PWM_SET;
     }
     else if(PID->ActualValue < 0)
     {
@@ -225,9 +223,10 @@ int32_t break_pid_ctrl(PID_TypeDef *PID,float Feedback_value)
 #endif
     
     /* 限制值在有效范围内 */
-    if(PID->ActualValue > MAX_PWM_BRAKE)
+    if(PID->ActualValue > MAX_PWM_BRAKE_SET)
     {
-        PID->ActualValue = MAX_PWM_BRAKE;
+        PID->ActualValue = MAX_PWM_BRAKE_SET;
+        
     }
     else if(PID->ActualValue < 0)
     {
@@ -249,23 +248,8 @@ static void motor_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid_speed,PID_T
     uint16_t pwm_temp1;
     uint16_t pwm_temp2;
     
-    if(pid_bldc_motor->run_flag == RUN  &&  pid_bldc_motor->max_t == RESET  && pid_bldc_motor->hall_miss == RESET && \
-        pid_bldc_motor->low_p == RESET  && pid_bldc_motor->locked_rotor  == RESET)
+    if(pid_bldc_motor->run_flag == RUN  && pid_bldc_motor->hall_miss == RESET)
     {
-        if (pid_bldc_motor->max_c == SET)
-        {
-            pid_current->SetPoint = pid_current->SetPoint * 0.75f;
-        }
-        
-        //转速不够高时限制占空比，防止大功率电机过流顿挫
-        if(pid_bldc_motor->speed < 800)
-        {
-            MAX_PWM = MAX_PWM_SET * (0.3f + (0.7f * ( pid_bldc_motor->speed / 800.0f)));
-        }else
-        {
-            MAX_PWM = MAX_PWM_SET;
-        }
-        
         pwm_temp1 = increment_pid_ctrl(pid_current,pid_bldc_motor->current);
         pwm_temp2 = increment_pid_ctrl(pid_speed,pid_bldc_motor->speed);
         
@@ -297,34 +281,22 @@ static void motor_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid_speed,PID_T
 
 
 
+
+
 /**
- * @brief       通电刹车PID。
+ * @brief       刹车PID。
  * @param       
  * @retval      
  */
 static void break_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid)
 {
-    
-    if(pid_bldc_motor->brake_flag > 0)
+    if(pid_bldc_motor->run_flag == BBK)
     {
-        //转速太高时限制占空比，防止大功率电机过流
-        if(pid_bldc_motor->speed > 700)
-        {
-            MAX_PWM_BRAKE = MAX_PWM_BRAKE_SET * (0.5f + (350.0f  / pid_bldc_motor->speed));
-        }else
-        {
-            MAX_PWM_BRAKE = MAX_PWM_BRAKE_SET;
-        }
-        //电流刹车比内阻刹车制动力大
-        if(pid_bldc_motor->brake_flag == 2)
-        {
-            pid->SetPoint = pid->SetPoint / 2.0f;
-        }
         pid_bldc_motor->brake_duty = break_pid_ctrl(pid,pid_bldc_motor->current);
     }else
     {
         pid->SetPoint = 0;
-        pid->ActualValue = 0;
+        pid->ActualValue = 200;//虚位
         pid->LastError = 0;
         pid->PrevError = 0;
         pid_bldc_motor->brake_duty = 0;
@@ -338,6 +310,7 @@ static void break_pid_set(_bldc_obj* pid_bldc_motor,PID_TypeDef* pid)
  */
 void TIM2_IRQHandler(void)
 {
+    static uint8_t Motor_delay[2] = {0};
     /* TIM Update event */
     if (__HAL_TIM_GET_FLAG(&g_tim2_handle, TIM_FLAG_UPDATE) != RESET)
     {
@@ -346,12 +319,68 @@ void TIM2_IRQHandler(void)
         
         if(UES_PID == 1)
         {
+            //在异常时慢慢减小pid
+            if(g_bldc_motorA.low_p == SET  || g_bldc_motorA.max_c == SET || g_bldc_motorA.max_t == SET)
+            {
+                Motor_delay[0] = 100;
+                if(g_MA_current_pid.SetPoint > rs_current_pid_temp[0].SetPoint)  //保证松油时及时响应
+                {
+                    g_MA_current_pid.SetPoint = rs_current_pid_temp[0].SetPoint;
+                }
+                g_MA_current_pid.SetPoint -= 50;
+                if(g_bldc_motorA.low_p == SET)
+                {
+                    if(g_MA_current_pid.SetPoint < 0) g_MA_current_pid.SetPoint = 0;
+                }else
+                {
+                    if(g_MA_current_pid.SetPoint < 5000) g_MA_current_pid.SetPoint = 5000;
+                }
+            }else
+            {
+                if(Motor_delay[0] < 1)  //延时后再恢复动力，防止人没准备好
+                {
+                    g_MA_current_pid.SetPoint  = rs_current_pid_temp[0].SetPoint;
+                }else
+                {
+                    g_MA_current_pid.SetPoint = 0;
+                    Motor_delay[0]--;
+                }
+            }
             
+            
+            if(g_bldc_motorB.low_p == SET  || g_bldc_motorB.max_c == SET || g_bldc_motorB.max_t == SET)
+            {
+                Motor_delay[1] = 100;
+                if(g_MB_current_pid.SetPoint > rs_current_pid_temp[1].SetPoint)  //保证松油时及时响应
+                {
+                    g_MB_current_pid.SetPoint = rs_current_pid_temp[1].SetPoint;
+                }
+                g_MB_current_pid.SetPoint -= 50;
+                
+                if(g_bldc_motorB.low_p == SET)
+                {
+                    if(g_MB_current_pid.SetPoint < 0) g_MB_current_pid.SetPoint = 0;
+                }else
+                {
+                    if(g_MB_current_pid.SetPoint < 5000) g_MB_current_pid.SetPoint = 5000;
+                }
+            }else
+            {
+                if(Motor_delay[1] < 1)  //延时后再恢复动力，防止人没准备好
+                {
+                    g_MB_current_pid.SetPoint  = rs_current_pid_temp[1].SetPoint;
+                }else
+                {
+                    g_MB_current_pid.SetPoint = 0;
+                    Motor_delay[1]--;
+                }
+            }
+            
+            //双环PID
             motor_pid_set(&g_bldc_motorA,&g_MA_speed_pid,&g_MA_current_pid);
             motor_pid_set(&g_bldc_motorB,&g_MB_speed_pid,&g_MB_current_pid);
-        }
-        if(BK_UES_PID == 1)
-        {
+            
+            // 刹车电流PID
             break_pid_set(&g_bldc_motorA,&g_MA_break_pid);
             break_pid_set(&g_bldc_motorB,&g_MB_break_pid);
         }

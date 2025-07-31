@@ -67,7 +67,7 @@ typedef struct
 
 
 
-
+extern PID_TypeDef  rs_current_pid_temp[2];
 
 void rs485_init( uint32_t baudrate);  /* RS485≥ı ºªØ */
 
